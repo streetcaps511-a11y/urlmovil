@@ -158,6 +158,20 @@ export const useProductos = () => {
     };
   }, []);
 
+  // 🔗 AUTO-ABRIR MODAL DESDE URL (?producto=ID)
+  useEffect(() => {
+    if (!loading && initialProducts.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const prodId = params.get('producto');
+      if (prodId) {
+        const found = initialProducts.find(p => String(p.id) === String(prodId));
+        if (found) {
+          setSelectedProduct(found);
+        }
+      }
+    }
+  }, [loading, initialProducts]);
+
   // 🔥 PRODUCTO SELECCIONADO DINÁMICO (Para que los cambios de stock en Admin se vean con el modal abierto)
   const modalProduct = useMemo(() => {
     if (!selectedProduct) return null;
@@ -195,18 +209,26 @@ export const useProductos = () => {
 
     const normalize = (str) =>
       (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    
-    const query = normalize(searchTerm);
+
+    const query = normalize(searchTerm.trim());
+    const queryWords = query.split(/\s+/).filter(w => w.length > 0);
 
     return (initialProducts || []).filter((p) => {
       if (!p.isActive || p.stock <= 0) return false;
 
-      // 1. Filtro de Búsqueda (Texto)
-      const matchesSearch = !hasSearch || (
-        normalize(p.nombre).includes(query) ||
-        normalize(p.categoria).includes(query) ||
-        normalize(p.descripcion).includes(query)
-      );
+      // 1. Filtro de Búsqueda (Texto) - Flexibilidad de palabras y múltiples campos
+      const matchesSearch = queryWords.length === 0 || queryWords.every(word => {
+        const pTallas = normalizeSizes(p).join(' ');
+        const pColores = (Array.isArray(p.colores) ? p.colores : [p.colores || '']).join(' ');
+        
+        return (
+          normalize(p.nombre).includes(word) ||
+          normalize(p.categoria).includes(word) ||
+          normalize(p.descripcion).includes(word) ||
+          normalize(pColores).includes(word) ||
+          normalize(pTallas).includes(word)
+        );
+      });
 
       // 2. Filtro de Colores (Multi-select)
       const pColores = Array.isArray(p.colores) ? p.colores : [p.colores || 'Negro'];

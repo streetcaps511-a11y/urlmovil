@@ -519,7 +519,12 @@ const Login = () => {
       cancelButtonColor: '#444',
       background: "#111418",
       color: "#fff",
-      padding: '0 10px 5px'
+      padding: '0 10px 5px',
+      customClass: {
+        popup: 'gm-swal-popup',
+        confirmButton: 'gm-swal-btn confirm',
+        cancelButton: 'gm-swal-btn cancel'
+      }
     });
 
     if (!result.isConfirmed) return;
@@ -537,15 +542,19 @@ const Login = () => {
           toast: true,
           position: 'top-end',
           width: '350px',
-          title: '<span style="color: #000; font-weight: 800;">¡Enviado!</span>',
-          html: `<span style="color: #333;">Revisa tu correo: <br/><b>${recoverEmail}</b></span>`,
+          title: '<span style="color: #FFC107; font-weight: 800;">¡Enviado!</span>',
+          html: `<span style="color: #fff;">Revisa tu correo: <br/><b>${recoverEmail}</b></span>`,
           icon: 'success',
-          background: "#fff", // Fondo blanco
+          iconColor: '#FFC107',
+          background: "#111418", 
           showConfirmButton: false,
           timer: 4000,
           timerProgressBar: true,
           showClass: {
             popup: 'animate__animated animate__fadeInRight animate__faster'
+          },
+          customClass: {
+            popup: 'gm-swal-popup'
           }
         });
         setRecoverEmail("");

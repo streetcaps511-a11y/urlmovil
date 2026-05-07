@@ -2,8 +2,8 @@
    Pieza modular de interfaz (como Tarjetas, Modales o Botones). 
    Recibe información a través de 'props' y notifica eventos hacia arriba (a la Página principal). */
 
-import React from 'react';
-import { FaPlus, FaMinus, FaTrash } from 'react-icons/fa';
+import React, { useRef, useEffect } from 'react';
+import { FaPlus, FaMinus, FaTrash, FaImage } from 'react-icons/fa';
 import CustomColorSelect from './CustomColorSelect';
 import { COMMON_COLORS } from '../../../shared/constants/colores';
 
@@ -50,6 +50,26 @@ const ProductoForm = ({
   handleCantidadChange,
   setFormData // Occasionally needed for specific resets if required
 }) => {
+  const nameInputRef = useRef(null);
+
+  const descriptionRef = useRef(null);
+
+  useEffect(() => {
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+      // Posicionar cursor al principio
+      nameInputRef.current.setSelectionRange(0, 0);
+    }
+  }, []);
+
+  // 🚀 Auto-expandir descripción al cargar (modo edición) o al cambiar
+  useEffect(() => {
+    if (descriptionRef.current) {
+      descriptionRef.current.style.height = '34px';
+      descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
+    }
+  }, [formData.descripcion]);
+
   const isValidUrl = (url) => {
     if (!url) return true; // Empty is handled by other validation if required
     try {
@@ -80,6 +100,15 @@ const ProductoForm = ({
   };
 
   const porcentajeOferta = calcularPorcentajeOferta();
+  
+  const handleImageUpload = (index, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      actualizarUrlImagen(index, reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <form id="productoForm" onSubmit={handleSubmit} className="product-form">
@@ -89,11 +118,11 @@ const ProductoForm = ({
           <div className="product-form-section info-section">
             <h3 className="product-form-section-title">Información General</h3>
               <div className="product-form-group">
-                <div className="form-row">
+                <div className="product-form-row-2col">
                   <div className="form-field">
                     <label className="form-label">Nombre: <span className="required">*</span></label>
                     <input
-                      autoFocus
+                      ref={nameInputRef}
                       type="text"
                       name="nombre"
                       value={formData.nombre}
@@ -126,11 +155,14 @@ const ProductoForm = ({
                 <div className="form-field full-width">
                   <label className="form-label">Descripción: <span className="required">*</span></label>
                   <textarea
+                    ref={descriptionRef}
                     name="descripcion"
                     value={formData.descripcion}
-                    onChange={handleInputChange}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                    }}
                     placeholder="Descripción obligatoria..."
-                    className={`form-textarea ${errors.descripcion ? 'has-error' : ''}`}
+                    className={`form-textarea dynamic-height ${errors.descripcion ? 'has-error' : ''}`}
                   />
                   {errors.descripcion && <div className="field-error-text">{errors.descripcion}</div>}
                 </div>
@@ -291,11 +323,13 @@ const ProductoForm = ({
                       <div className="form-card-list">
                         {coloresProducto.map((color, index) => (
                           <div key={index} className="form-list-row color-row">
-                            <CustomColorSelect
-                              value={color}
-                              options={availableColores.length > 0 ? availableColores : COMMON_COLORS}
-                              onChange={(value) => actualizarColor(index, value)}
-                            />
+                            <div style={{ width: '120px' }}>
+                              <CustomColorSelect
+                                value={color}
+                                options={availableColores.length > 0 ? availableColores : COMMON_COLORS}
+                                onChange={(value) => actualizarColor(index, value)}
+                              />
+                            </div>
                             <button type="button" onClick={() => eliminarColor(index)} className="btn-delete"><FaTrash size={12} /></button>
                           </div>
                         ))}
@@ -320,15 +354,28 @@ const ProductoForm = ({
                           const isInvalid = url.trim() !== '' && !isValidUrl(url);
                           return (
                             <div key={index} className="form-list-row-wrapper">
-                              <div className="form-list-row image-row">
+                              <div className="form-list-row image-row" style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ color: '#F5C81B', fontSize: '11px', fontWeight: 'bold', marginRight: '6px', minWidth: '16px' }}>{index + 1}.</span>
                                 <input
                                   type="text"
                                   value={url}
                                   onChange={(e) => actualizarUrlImagen(index, e.target.value)}
                                   placeholder={`URL ${index + 1}`}
                                   className={`form-input-sm ${errors[`url_${index}`] || isInvalid ? 'has-error' : ''}`}
+                                  style={{ flex: 1 }}
                                 />
-                                <button type="button" onClick={() => eliminarUrlImagen(index)} className="btn-delete"><FaTrash size={12} /></button>
+                                <div style={{ display: 'flex', gap: '8px', marginLeft: '8px' }}>
+                                  <label style={{ margin: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#FFC300', opacity: 0.8 }} title="Subir imagen">
+                                    <FaImage size={14} />
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      style={{ display: 'none' }} 
+                                      onChange={(e) => handleImageUpload(index, e.target.files[0])}
+                                    />
+                                  </label>
+                                  <button type="button" onClick={() => eliminarUrlImagen(index)} className="btn-delete" style={{ margin: 0 }}><FaTrash size={12} /></button>
+                                </div>
                               </div>
                               {(errors[`url_${index}`] || isInvalid) && (
                                 <div className="field-error-text" style={{ paddingLeft: '5px' }}>
@@ -349,8 +396,11 @@ const ProductoForm = ({
         {/* VISTA PREVIA */}
         {urlsImagenes.some(url => url.trim() !== '') && (
           <div className="external-previews-container">
-            {urlsImagenes.filter(url => url.trim() !== '').map((url, i) => (
-              <div key={i} className="external-preview-wrapper">
+            {urlsImagenes.map((url, i) => url.trim() !== '' ? (
+              <div key={i} className="external-preview-wrapper" style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '5px', left: '5px', backgroundColor: 'rgba(0,0,0,0.7)', border: '1px solid #FFC300', color: '#FFC300', fontSize: '11px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', zIndex: 2 }}>
+                  {i + 1}
+                </div>
                 <img 
                   src={url} 
                   alt={`Preview ${i+1}`} 
@@ -358,7 +408,7 @@ const ProductoForm = ({
                   onError={(e) => { e.target.closest('.external-preview-wrapper').style.display = 'none'; }}
                 />
               </div>
-            ))}
+            ) : null)}
           </div>
         )}
       </div>

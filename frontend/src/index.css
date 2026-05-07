@@ -1,5 +1,6 @@
 /* src/index.css */
 @import "tailwindcss";
+@import "./features/shared/styles/Tooltips.css";
 
 /* === Reset y configuración base === */
 * {
@@ -36,7 +37,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #ffffff;
-  background-color: #030712;
+  background-color: #0f172a; /* Sincronizado con el carrito */
 }
 
 /* === Tablas con scroll oculto === */

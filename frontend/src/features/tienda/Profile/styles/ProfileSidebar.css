@@ -2,7 +2,7 @@
   background: #0f172a;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  overflow: hidden;
+  overflow: visible; /* Cambiado de hidden para que el menú de avatar no se tape */
   padding: 45px 35px;
   display: flex;
   flex-direction: column;
@@ -47,6 +47,7 @@
   width: 170px; /* Más grande como pidió */
   height: 170px;
   margin: 0 auto;
+  overflow: visible; /* Necesario para que el menú desplegable no se corte */
 }
 
 .gm-avatar-wrapper {
@@ -197,12 +198,15 @@
 }
 
 .gm-user-name {
-  font-size: 1.6rem; /* Más grande para el nuevo ancho */
+  font-size: 1.4rem; /* Un poco mas pequeño para que quepa mejor si envuelve */
   font-weight: 800;
   margin: 0;
   color: #fff;
-  text-transform: capitalize; /* Iniciales mayúscula */
+  text-transform: capitalize; 
   letter-spacing: -0.5px;
+  white-space: normal;      /* Permitir que baje si es largo */
+  word-break: break-word;   /* Romper palabras si es necesario */
+  line-height: 1.2;
 }
 
 .gm-profile-label-mobile {
@@ -456,17 +460,18 @@
 .gm-avatar-menu {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;          /* Abrir hacia la derecha para que no se salga de la pantalla */
+  right: auto;
   background-color: #1e293b;
-  border: 1px solid #334155;
+  border: 1px solid #FFC107;
   border-radius: 8px;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  z-index: 50;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  min-width: 150px;
+  z-index: 2100;    /* Encima de todo el overlay móvil */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  min-width: 160px;
 }
 .gm-avatar-menu-item {
   display: flex;

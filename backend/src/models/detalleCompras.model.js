@@ -23,6 +23,12 @@ const CompraDetalle = sequelize.define('CompraDetalle', {
         field: 'IdProducto',
         comment: 'ID del producto en tabla Productos (opcional)'
     },
+    nFactura: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'Nfactura',
+        comment: 'Número de factura manual vinculado al detalle'
+    },
     idTalla: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -35,14 +41,13 @@ const CompraDetalle = sequelize.define('CompraDetalle', {
     },
     talla: {
         type: DataTypes.STRING(20),
-        allowNull: false,
+        allowNull: true,
         field: 'Talla'
     },
     cantidad: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         defaultValue: 1,
-        validate: { min: 1 },
         field: 'Cantidad'
     },
     precioCompra: {
@@ -71,7 +76,14 @@ const CompraDetalle = sequelize.define('CompraDetalle', {
         defaultValue: 0,
         field: 'Subtotal',
         comment: 'Cantidad * PrecioCompra (calculado en backend)'
-    }
+    },
+    variantes: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        field: 'Variantes',
+        comment: 'JSON con las tallas y cantidades compradas: [{talla, cantidad}]',
+        defaultValue: []
+    },
 }, {
     tableName: 'CompraDetalles',
     timestamps: false,

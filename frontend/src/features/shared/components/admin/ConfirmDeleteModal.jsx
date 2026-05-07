@@ -50,7 +50,7 @@ const ConfirmDeleteModal = ({
   const displayMessage = customMessage || `Estás a punto de eliminar ${isGenericFallback ? `el ${entityName}` : `el/la ${entityName}`}:`;
 
   return (
-    <div className="delete-modal-backdrop" onClick={loading ? null : onClose}>
+    <div className="delete-modal-backdrop">
       <div className="delete-modal-container" onClick={(e) => e.stopPropagation()}>
         <h2 className="delete-modal-title">Confirmar Eliminación</h2>
 

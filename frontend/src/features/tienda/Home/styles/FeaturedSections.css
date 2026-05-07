@@ -49,10 +49,11 @@
 
 .gm-section-title {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 900;
-  letter-spacing: 0.2px;
+  font-size: 1.35rem;
+  font-weight: 900 !important;
+  letter-spacing: 1px;
   color: var(--gm-text);
+  text-transform: uppercase;
 }
 
 @media (max-width: 768px) {

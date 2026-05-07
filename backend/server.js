@@ -31,9 +31,11 @@ const startServer = async () => {
             await sequelize.query('ALTER TABLE "Ventas" ALTER COLUMN "IdCliente" DROP NOT NULL');
             await sequelize.query('ALTER TABLE "Ventas" ADD COLUMN IF NOT EXISTS "ClienteNombreHistorico" VARCHAR(255)');
 
-            // 🚀 MIGRACIÓN PARA COMPRAS (BORRADO DE PROVEEDORES)
+            // 🚀 MIGRACIÓN PARA COMPRAS (BORRADO DE PROVEEDORES Y NUEVOS CAMPOS)
             await sequelize.query('ALTER TABLE "Compras" ALTER COLUMN "IdProveedor" DROP NOT NULL');
             await sequelize.query('ALTER TABLE "Compras" ADD COLUMN IF NOT EXISTS "ProveedorNombreHistorico" VARCHAR(255)');
+            await sequelize.query('ALTER TABLE "Compras" ADD COLUMN IF NOT EXISTS "NumeroRecibo" VARCHAR(100)');
+            await sequelize.query('ALTER TABLE "Compras" ADD COLUMN IF NOT EXISTS "FechaRegistro" DATE');
 
             // 🚀 MIGRACIÓN PARA DETALLE VENTAS (PERSISTENCIA DE NOMBRES)
             await sequelize.query('ALTER TABLE "DetalleVentas" ADD COLUMN IF NOT EXISTS "NombreProducto" VARCHAR(255)');
@@ -103,6 +105,8 @@ const startServer = async () => {
     } catch (e) {
         console.error('❌ Error migrando tabla de Devoluciones:', e.message);
     }
+
+    // 🚀 MIGRACIONES DE SECUENCIA ELIMINADAS: El usuario prefiere conteo normal (1, 2, 3...)
     
     // 2. Escuchar en el puerto (app ya tiene todas las rutas)
     const server = app.listen(PORT, '0.0.0.0', () => {

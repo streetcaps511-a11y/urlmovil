@@ -160,11 +160,29 @@ export const useProveedoresLogic = () => {
   const handleFieldChange = (e) => {
     let { name, value } = e.target;
     // Limit and validation for doc number and phone (already in code)
-    if (name === 'documentNumber' || name === 'phone') {
-      const limit = name === 'documentNumber' ? 12 : 10;
+    if (name === 'phone') {
       const onlyNums = value.replace(/[^0-9]/g, '');
-      if (onlyNums.length <= limit) value = onlyNums;
-      else return; 
+      const code = formData.countryCode || '+57';
+      const maxLength = code === '+507' ? 8 : (code === '+34' || code === '+56' || code === '+51') ? 9 : 10;
+      if (onlyNums.length <= maxLength) value = onlyNums;
+      else return;
+    }
+    if (name === 'documentNumber') {
+      const isNIT = formData.documentType === 'NIT';
+      if (isNIT) {
+        // Solo permitir números y un solo guión
+        let clean = value.replace(/[^0-9-]/g, '');
+        const hyphenCount = (clean.match(/-/g) || []).length;
+        if (hyphenCount > 1) return; 
+        
+        // El formato es XXXXXXXXX-Y (9 dígitos, guión, 1 dígito)
+        if (clean.length > 11) return;
+        value = clean;
+      } else {
+        const onlyNums = value.replace(/[^0-9]/g, '');
+        if (onlyNums.length <= 15) value = onlyNums;
+        else return;
+      }
     }
 
     setFormData(prev => {
@@ -179,6 +197,18 @@ export const useProveedoresLogic = () => {
     });
 
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    if (name === 'documentNumber' && formData.documentType === 'NIT') {
+      if (value && !/^\d{9}-\d{1}$/.test(value)) {
+        setErrors(prev => ({
+          ...prev,
+          documentNumber: 'NIT inválido. Debe tener 9 dígitos, un guion y un dígito (ej: 123456789-0)'
+        }));
+      }
+    }
   };
 
   const openModal = (mode = 'view', proveedor = null) => {
@@ -196,6 +226,7 @@ export const useProveedoresLogic = () => {
         companyName: '',
         contactName: '',
         email: '',
+        countryCode: '+57',
         phone: '',
         address: '',
         city: '',
@@ -212,26 +243,107 @@ export const useProveedoresLogic = () => {
     const newErrors = {};
     const isJuridica = formData.supplierType?.toLowerCase() === 'persona jurídica';
 
-    // ⚡ VALIDACIÓN MÚLTIPLE (Simultánea)
-    if (!formData.supplierType) newErrors.supplierType = 'Campo requerido';
-    if (!formData.documentType) newErrors.documentType = 'Campo requerido';
-    if (!formData.documentNumber) newErrors.documentNumber = 'Campo requerido';
-    else if (formData.documentNumber.length < 6 || formData.documentNumber.length > 12) {
-      newErrors.documentNumber = 'Debe tener entre 6 y 12 dígitos';
+    // ⚡ VALIDACIÓN: solo mostrar el error del primer campo vacío encontrado
+    const requiredFields = [
+      { key: 'supplierType', label: 'Tipo de persona' },
+      { key: 'documentType', label: 'Tipo de documento' },
+      { key: 'documentNumber', label: 'Número de documento' },
+      ...(isJuridica ? [{ key: 'companyName', label: 'Nombre de empresa' }] : []),
+      { key: 'contactName', label: isJuridica ? 'Encargado' : 'Nombre completo' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Teléfono' },
+      { key: 'department', label: 'Departamento' },
+      { key: 'city', label: 'Ciudad' },
+      { key: 'address', label: 'Dirección' }
+    ];
+
+    // Encontrar el primer campo vacío
+    for (const field of requiredFields) {
+      if (!formData[field.key] || formData[field.key].toString().trim() === '') {
+        newErrors[field.key] = `${field.label} es requerido`;
+        setErrors(newErrors);
+        return false;
+      }
     }
 
-    if (isJuridica && !formData.companyName) newErrors.companyName = 'Campo requerido';
-    if (!formData.contactName) newErrors.contactName = 'Campo requerido';
+    if (formData.contactName) {
+      if (formData.contactName.trim().length < 3) {
+        newErrors.contactName = 'El nombre debe tener al menos 3 caracteres';
+        setErrors(newErrors);
+        return false;
+      }
+    }
+
+    // Teléfono según país
+    if (formData.phone) {
+      const code = formData.countryCode || '+57';
+      const phone = formData.phone.trim();
+      const expected = code === '+507' ? 8 : (code === '+34' || code === '+56' || code === '+51') ? 9 : 10;
+      if (phone.length !== expected) {
+        newErrors.phone = `El teléfono debe tener ${expected} dígitos para este país`;
+        setErrors(newErrors);
+        return false;
+      }
+    }
+
+    if (!formData.address || formData.address.trim() === '') {
+      newErrors.address = 'La dirección es obligatoria';
+      setErrors(newErrors);
+      return false;
+    }
+
+    // Validaciones de formato específicas
+    // NIT: si es jurídica, debe tener guión + dígito verificador (ej: 900123456-7)
+    if (isJuridica && formData.documentNumber) {
+      const nit = formData.documentNumber;
+      if (!/^\d{9}-\d{1}$/.test(nit)) {
+        newErrors.documentNumber = 'El NIT debe tener 9 dígitos, un guión y un dígito (ej: 123456789-0)';
+        setErrors(newErrors);
+        return false;
+      }
+    } else if (formData.documentNumber) {
+      if (formData.documentNumber.length < 6 || formData.documentNumber.length > 15) {
+        newErrors.documentNumber = 'Debe tener entre 6 y 15 dígitos';
+        setErrors(newErrors);
+        return false;
+      }
+    }
     
-    if (!formData.email) newErrors.email = 'Campo requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Email inválido';
+    // Email: validación estricta
+    if (formData.email) {
+      const email = formData.email.trim();
+      const atCount = (email.match(/@/g) || []).length;
+      
+      if (atCount === 0) {
+        newErrors.email = 'El email debe tener una arroba (@)';
+      } else if (atCount > 1) {
+        newErrors.email = 'El email no puede tener más de una arroba (@)';
+      } else if (email.includes('..')) {
+        newErrors.email = 'No puede haber dos puntos consecutivos (..)';
+      } else if (email.toLowerCase().endsWith('.com.com')) {
+        newErrors.email = 'El dominio no puede ser .com.com';
+      } else {
+        const [local, domain] = email.split('@');
+        if (!local || local.length === 0) {
+          newErrors.email = 'Falta el nombre antes de la arroba';
+        } else if (!domain || !domain.includes('.')) {
+          newErrors.email = 'Falta el punto después del dominio (ej: .com)';
+        } else {
+          const parts = domain.split('.');
+          const lastPart = parts[parts.length - 1];
+          if (lastPart.length < 2) {
+            newErrors.email = 'El dominio del correo no es válido';
+          }
+        }
+      }
+      
+      if (newErrors.email) {
+        setErrors(newErrors);
+        return false;
+      }
+    }
     
-    if (!formData.phone) newErrors.phone = 'Campo requerido';
-    else if (formData.phone.length !== 10) newErrors.phone = 'Debe tener 10 dígitos';
-    
-    if (!formData.department) newErrors.department = 'Campo requerido';
-    if (!formData.city) newErrors.city = 'Campo requerido';
-    if (!formData.address) newErrors.address = 'Campo requerido';
+    // Teléfono ya validado por longitud según país arriba
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -239,7 +351,10 @@ export const useProveedoresLogic = () => {
 
   const handleSave = async () => {
     if (!validate()) {
-      showAlert('Complete los campos obligatorios', 'error');
+      // Encontrar el primer error para mostrar su mensaje específico
+      const firstErrorKey = Object.keys(errors)[0];
+      const firstErrorMsg = errors[firstErrorKey] || 'Complete el campo obligatorio';
+      showAlert(firstErrorMsg, 'error');
       return;
     }
 
@@ -370,6 +485,7 @@ export const useProveedoresLogic = () => {
     showingStart,
     endIndex,
     handleFieldChange,
+    handleBlur,
     openModal,
     closeModal,
     handleSave,

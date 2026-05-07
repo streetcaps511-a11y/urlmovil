@@ -143,10 +143,11 @@ const AdminLayoutClean = () => {
   }, [sidebarItems, location.pathname, navigate]);
 
   const toggleGroup = (groupId) => {
-    setExpandedGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
+    setExpandedGroups(prev => {
+      // Si el grupo ya está abierto, lo cerramos.
+      // Si no, abrimos ese grupo y cerramos todos los demás.
+      return { [groupId]: !prev[groupId] };
+    });
   };
 
   const handleLogout = () => {

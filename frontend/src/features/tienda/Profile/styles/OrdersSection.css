@@ -775,7 +775,17 @@
   .gm-header-right-group {
     width: auto;
     justify-content: flex-start !important;
-    gap: 12px !important;
+    gap: 15px !important;
+  }
+
+  /* Botón PDF restaurado en móvil solicitado */
+  .gm-download-btn-premium {
+    padding: 6px 12px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .gm-back-row {
+    gap: 15px !important;
   }
 
   .gm-detail-top-info-grid {
@@ -1050,14 +1060,44 @@
   }
 
   .gm-order-card {
-    padding: 15px 12px !important;
-    flex-wrap: wrap;
-    gap: 10px;
+    padding: 12px 10px !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    justify-content: space-between !important;
+  }
+
+  .gm-order-id {
+    font-size: 0.85rem !important;
+    white-space: nowrap;
   }
 
   .gm-order-meta {
-    gap: 12px !important;
-    flex-wrap: wrap;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+    flex: 1;
+  }
+
+  .gm-order-total {
+    font-size: 0.8rem !important;
+    white-space: nowrap;
+  }
+
+  .gm-order-date {
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+    display: none; /* Ocultamos fecha en móviles muy pequeños para dar espacio al total y estado */
+  }
+
+  @media (min-width: 400px) {
+    .gm-order-date {
+      display: block;
+    }
+  }
+
+  .gm-status-badge {
+    padding: 4px 10px !important;
+    font-size: 0.65rem !important;
   }
 
   .gm-search-input {

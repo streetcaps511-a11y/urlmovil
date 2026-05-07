@@ -5,7 +5,9 @@
 import React from 'react';
 import { FaTimes } from 'react-icons/fa';
 import ProductCard from './ProductCard';
+import PaginatedGrid from '../../shared/components/PaginatedGrid';
 import '../styles/OfertasGrid.css';
+import '../../shared/styles/Pagination.css';
 
 const OfertasGrid = ({ 
   searchFiltered, 
@@ -52,19 +54,15 @@ const OfertasGrid = ({
           )}
         </div>
       ) : (
-        <div className="gm-products-grid">
-          {displayProducts.map((product) => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              openModal={openModal}
-              safeImg={safeImg}
-              getRatingFromProduct={getRatingFromProduct}
-              badge="Oferta"
-              badgeType="oferta"
-            />
-          ))}
-        </div>
+        <PaginatedGrid
+          products={displayProducts}
+          openModal={openModal}
+          safeImg={safeImg}
+          getRatingFromProduct={getRatingFromProduct}
+          ProductCardComponent={ProductCard}
+          badgeLabel="Oferta"
+          badgeType="oferta"
+        />
       )}
     </div>
   );

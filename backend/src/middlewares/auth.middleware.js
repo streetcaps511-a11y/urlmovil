@@ -130,18 +130,9 @@ export const verifyToken = async (req, res, next) => {
 
     // ✅ Inyectar para que el controlador lo reciba directamente
     req.usuario = usuario;
-    req.platform = platform; 
+    req.platform = platform; // 🔑 Inyectar plataforma
     req.rol = usuario.rolData;
     req.usuarioId = usuario.id;
-
-    // 🛡️ REFUERZO DE PERMISOS PARA ADMIN (Si el JSON está vacío)
-    const userRolId = Number(usuario.idRol || usuario.IdRol || 0);
-    if (userRolId === 1 && (!req.rol.permisos || req.rol.permisos.length === 0)) {
-       req.rol.permisos = [
-         'dashboard', 'productos', 'categorias', 'proveedores', 'compras', 
-         'clientes', 'ventas', 'devoluciones', 'usuarios', 'roles', 'estados'
-       ];
-    }
 
     // console.log(`✅ Token verificado: ${usuario.email}. Rol: ${req.rol?.nombre} (ID: ${req.rol?.id})`);
     next();

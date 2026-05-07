@@ -78,7 +78,7 @@ export const CartProvider = ({ children }) => {
       prev.map((i) => {
         if (String(i.id) === String(productId) && String(i.talla) === String(talla)) {
           const stock = getStockForSize(i);
-          const finalQty = quantity > stock ? stock : (quantity < 1 ? 1 : quantity);
+          const finalQty = quantity > stock ? stock : (quantity < 0 ? 0 : quantity);
           return { ...i, quantity: finalQty };
         }
         return i;

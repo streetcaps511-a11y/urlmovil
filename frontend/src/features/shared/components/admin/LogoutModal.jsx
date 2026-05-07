@@ -9,7 +9,7 @@ const LogoutModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="delete-modal-backdrop" onClick={onClose}>
+    <div className="delete-modal-backdrop">
       <div className="delete-modal-container" onClick={(e) => e.stopPropagation()}>
         <h2 className="delete-modal-title">Confirmar Salida</h2>
 

@@ -26,91 +26,106 @@ const InvoiceModal = ({ isOpen, onClose, invoiceData }) => {
   const handleDownloadPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // Fondo blanco estándar para el PDF
+    // Group items by name
+    const groupedItems = (items || []).reduce((acc, i) => {
+      const existing = acc.find(item => item.name === i.name);
+      if (existing) {
+        existing.quantity = (parseInt(existing.quantity) || 0) + (parseInt(i.quantity) || 0);
+      } else {
+        acc.push({ ...i });
+      }
+      return acc;
+    }, []);
+
+    // Standard white background
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, 210, 297, 'F');
     
-    // Título Principal
-    doc.setTextColor(30, 41, 59); // Un gris muy oscuro (slate-800)
-    doc.setFontSize(24);
+    // Header - Left Name, Right Number
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text("GORRAS MEDELLÍN", 105, 25, { align: 'center' });
+    doc.text("Gorras medellín", 20, 25);
     
-    doc.setTextColor(100, 116, 139); // Gris medio
-    doc.setFontSize(10);
+    doc.setFontSize(14);
+    doc.text(`NUMERO PED: ${invoiceNumber || ''}`, 190, 25, { align: 'right' });
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`No. INV-${invoiceNumber || ''}`, 105, 33, { align: 'center' });
-    doc.text(`Fecha: ${date || ''}`, 105, 38, { align: 'center' });
+    doc.text(`Fecha: ${date || ''}`, 190, 31, { align: 'right' });
 
-    // Datos del cliente
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(12);
+    // Client Info Section
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text("DATOS DEL CLIENTE:", 20, 55);
+    doc.text("Datos del cliente:", 20, 50);
     
     const phoneValue = customerPhone && customerPhone !== 'No especificado' ? customerPhone : 'No especificado';
     
-    doc.setTextColor(51, 65, 85);
+    doc.setTextColor(50, 50, 50);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Nombre: ${customerName}`, 20, 62);
-    doc.text(`Email: ${customerEmail}`, 20, 67);
-    doc.text(`Dirección: ${customerAddress}`, 20, 72);
-    doc.text(`Teléfono: ${phoneValue}`, 20, 77);
+    doc.text(`Nombre: ${customerName}`, 20, 57);
+    doc.text(`Email: ${customerEmail}`, 20, 62);
+    doc.text(`Dirección: ${customerAddress}`, 20, 67);
+    doc.text(`Teléfono: ${phoneValue}`, 20, 72);
+    doc.text(`Fecha: ${date || ''}`, 20, 77);
+    doc.text(`Método de Pago: ${invoiceData.paymentMethod || 'N/A'}`, 20, 82);
+    doc.text(`Envío: Consultar con el vendedor`, 20, 87);
+    
+    // TOTAL FRONT OF CLIENT DATA
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Total del pedido:", 190, 70, { align: 'right' });
+    doc.setFontSize(22);
+    doc.setTextColor(0, 0, 0); // Negro solicitado
+    doc.text(`$${total.toLocaleString()}`, 190, 82, { align: 'right' });
 
-    // Caja SOLO para productos
-    const tableTop = 103;
-    const boxHeight = (items.length * 7) + 15;
-    doc.setDrawColor(203, 213, 225); // Borde gris claro
-    doc.setLineWidth(0.5);
-    doc.rect(15, tableTop, 180, boxHeight);
+    // Table Header - Black background
+    const tableTop = 100;
+    doc.setFillColor(0, 0, 0); 
+    doc.rect(15, tableTop, 180, 8, 'F');
 
-    let yPosHead = 110;
-    doc.setTextColor(30, 41, 59);
+    doc.setTextColor(255, 255, 255); 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text("Producto", 20, yPosHead);
-    doc.text("Cant.", 90, yPosHead);
-    doc.text("Precio", 110, yPosHead);
-    doc.text("Total", 140, yPosHead);
+    doc.text("Producto", 20, tableTop + 5.5);
+    doc.text("Talla", 90, tableTop + 5.5);
+    doc.text("Cantidad", 115, tableTop + 5.5);
+    doc.text("Precio", 145, tableTop + 5.5);
+    doc.text("Total", 175, tableTop + 5.5);
     
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.1);
-    doc.line(15, 113, 195, 113);
-
-    let yPosItems = 120;
-    items.forEach(item => {
-      doc.setTextColor(51, 65, 85);
+    let yPosItems = tableTop + 14;
+    doc.setTextColor(0, 0, 0);
+    (items || []).forEach(item => {
+      if (yPosItems > 260) { doc.addPage(); yPosItems = 20; }
+      
       doc.setFont('helvetica', 'normal');
-      doc.text(item.name.length > 30 ? item.name.substring(0, 30) + "..." : item.name, 20, yPosItems);
-      doc.text(String(item.quantity), 90, yPosItems);
-      doc.text(`$${item.price.toLocaleString()}`, 110, yPosItems);
-      doc.text(`$${(item.price * item.quantity).toLocaleString()}`, 140, yPosItems);
+      doc.setFontSize(9);
+      doc.text(item.name.length > 35 ? item.name.substring(0, 35) + "..." : item.name, 20, yPosItems);
+      doc.text(item.size || item.talla || 'N/A', 90, yPosItems);
+      doc.text(String(item.quantity), 115, yPosItems);
+      doc.text(`$${item.price.toLocaleString()}`, 145, yPosItems);
+      doc.text(`$${(item.price * item.quantity).toLocaleString()}`, 175, yPosItems);
+      
       yPosItems += 7;
     });
 
-    // Totales fuera de la caja
-    let yPosTotals = yPosItems + 15;
-
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
+    // Pie de página
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, pageHeight - 25, 195, pageHeight - 25);
     
-    doc.text("Envío:", 120, yPosTotals);
-    doc.text(shipping || 'N/A', 150, yPosTotals);
-    
-    yPosTotals += 10;
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text("TOTAL:", 120, yPosTotals);
-    doc.setFontSize(16);
-    doc.text(`$${total.toLocaleString()}`, 150, yPosTotals);
-
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(100, 100, 100);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
-    doc.text("Gracias por elegir Gorras Medellín. Tu pedido está siendo procesador.", 20, yPosTotals + 20);
+    doc.setFont('helvetica', 'bold');
+    doc.text("GORRAS MEDELLÍN - Tu estilo, nuestra pasión", 105, pageHeight - 18, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Alfonzo López - Medellin | WhatsApp: +57 300 6158180", 105, pageHeight - 13, { align: 'center' });
+    doc.text("Email: duvann1991@gmail.com | Instagram: @gorrasmedellin", 105, pageHeight - 8, { align: 'center' });
 
     doc.save(`Comprobante_GMCAPS_${invoiceNumber}.pdf`);
   };

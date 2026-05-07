@@ -96,6 +96,11 @@ const Venta = sequelize.define('Venta', {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'MotivoRechazo'
+    },
+    noVenta: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'NoVenta'
     }
 }, {
     tableName: 'Ventas',

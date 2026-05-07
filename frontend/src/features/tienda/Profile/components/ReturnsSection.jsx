@@ -301,8 +301,13 @@ const ReturnsSection = ({
 
             {paginatedItems.map(i => (
               <div key={i.id} className="gm-order-temu-item ultra-slim-row" style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '5px 20px', marginBottom: '10px', overflow: 'hidden' }}>
-                <div className="gm-product-img-wrapper" style={{ position: 'relative', width: '60px', height: '60px', minWidth: '60px' }}>
+                <div 
+                  className="gm-product-img-wrapper" 
+                  style={{ position: 'relative', width: '60px', height: '60px', minWidth: '60px', cursor: 'pointer' }}
+                  onClick={() => setPreviewImage(i.image)}
+                >
                   <img src={i.image} className="gm-order-item-img" alt={i.name} style={{ width: '100%', height: '100%', background: '#000' }} />
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: '0.5rem', textAlign: 'center', padding: '2px 0' }}>Ver más</div>
                 </div>
                 
                 <div className="gm-item-ultra-horizontal-content">
@@ -317,7 +322,9 @@ const ReturnsSection = ({
                   </div>
 
                   <div className="gm-item-action-price-group">
-                    <span className="gm-item-price" style={{ fontSize: '1.2rem', fontWeight: '800', color: '#FFC107', minWidth: '90px', textAlign: 'right', fontFamily: '"Outfit", sans-serif' }}>{i.price}</span>
+                    <span className="gm-item-price" style={{ fontSize: '1.2rem', fontWeight: '800', color: '#FFC107', minWidth: '90px', textAlign: 'right', fontFamily: '"Outfit", sans-serif' }}>
+                      ${( (typeof i.price === 'string' ? parseInt(i.price.replace(/[^0-9]/g, '')) : i.price) * (parseInt(i.qty) || 1) ).toLocaleString('es-CO')}
+                    </span>
                   </div>
                 </div>
               </div>

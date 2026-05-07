@@ -145,13 +145,30 @@ const VentasPage = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const saleId = ventaViendo.id;
     const date = ventaViendo.fecha;
-    const items = (ventaViendo.productos || []).map(p => ({
-      name: p.nombre,
-      size: p.talla,
-      quantity: p.cantidad,
-      price: typeof p.precio === 'string' ? parseFloat(p.precio.replace(/[^0-9.]/g, '')) : p.precio,
-      subtotal: typeof p.subtotal === 'string' ? parseFloat(p.subtotal.replace(/[^0-9.]/g, '')) : p.subtotal
-    }));
+    // Group products by name to avoid repeating name for multiple sizes
+    const groupedItems = (ventaViendo.productos || []).reduce((acc, p) => {
+      const price = typeof p.precio === 'string' ? parseFloat(p.precio.replace(/[^0-9.]/g, '')) : p.precio;
+      const subtotal = typeof p.subtotal === 'string' ? parseFloat(p.subtotal.replace(/[^0-9.]/g, '')) : p.subtotal;
+      
+      const existing = acc.find(item => item.name === p.nombre);
+      if (existing) {
+        existing.quantity = (parseInt(existing.quantity) || 0) + (parseInt(p.cantidad) || 0);
+        if (!existing.sizes.includes(p.talla)) {
+          existing.sizes.push(p.talla);
+        }
+        existing.subtotal += subtotal;
+      } else {
+        acc.push({
+          name: p.nombre,
+          sizes: [p.talla],
+          quantity: parseInt(p.cantidad) || 0,
+          price: price,
+          subtotal: subtotal
+        });
+      }
+      return acc;
+    }, []);
+
     const total = typeof ventaViendo.total === 'string' ? parseFloat(ventaViendo.total.replace(/[^0-9.]/g, '')) : (ventaViendo.total || 0);
     
     const cliente = ventaViendo.cliente;
@@ -161,13 +178,15 @@ const VentasPage = () => {
     const customerPhone = typeof cliente === 'object' ? cliente?.telefono : 'N/A';
     const customerAddress = ventaViendo.direccionEnvio || 'Recogida en local';
 
-    // Header
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(22);
+    // Header - Black rectangle
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
     doc.text("GORRAS MEDELLÍN", 105, 20, { align: 'center' });
     
-    doc.setTextColor(100, 100, 100);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`COMPROBANTE DE VENTA No. ${saleId}`, 105, 28, { align: 'center' });
@@ -199,55 +218,61 @@ const VentasPage = () => {
 
     // Table Header
     const tableTop = 100;
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.5);
-    doc.line(15, tableTop, 195, tableTop);
+    doc.setFillColor(230, 230, 230); // Light gray
+    doc.rect(15, tableTop, 180, 8, 'F');
     
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text("Producto", 20, tableTop + 7);
-    doc.text("Talla", 90, tableTop + 7);
-    doc.text("Cant.", 115, tableTop + 7);
-    doc.text("Precio", 135, tableTop + 7);
-    doc.text("Subtotal", 165, tableTop + 7);
-    
-    doc.setLineWidth(0.1);
-    doc.line(15, tableTop + 10, 195, tableTop + 10);
+    doc.text("Producto", 20, tableTop + 5);
+    doc.text("Talla", 90, tableTop + 5);
+    doc.text("Cant.", 120, tableTop + 5);
+    doc.text("Precio", 140, tableTop + 5);
+    doc.text("Subtotal", 170, tableTop + 5);
 
     // Table Rows
-    let yPos = tableTop + 17;
-    items.forEach(item => {
-      doc.setFont('helvetica', 'normal');
-      doc.text(item.name.length > 30 ? item.name.substring(0, 30) + "..." : item.name, 20, yPos);
-      doc.text(String(item.size), 90, yPos);
-      doc.text(String(item.quantity), 115, yPos);
-      doc.text(`$${Number(item.price).toLocaleString('es-CO')}`, 135, yPos);
-      doc.text(`$${Number(item.subtotal).toLocaleString('es-CO')}`, 165, yPos);
-      yPos += 7;
-      
-      if (yPos > 270) {
+    let yPos = tableTop + 15;
+    groupedItems.forEach(item => {
+      if (yPos > 260) {
         doc.addPage();
         yPos = 20;
       }
+      doc.setFont('helvetica', 'bold');
+      doc.text(item.name.length > 30 ? item.name.substring(0, 30) + "..." : item.name, 20, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(item.sizes.join(', '), 90, yPos);
+      doc.text(String(item.quantity), 120, yPos);
+      doc.text(`$${Number(item.price).toLocaleString('es-CO')}`, 140, yPos);
+      doc.text(`$${Number(item.subtotal).toLocaleString('es-CO')}`, 170, yPos);
+      yPos += 7;
     });
 
     // Totals
     yPos += 10;
-    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0);
     doc.line(130, yPos, 195, yPos);
     yPos += 10;
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text("TOTAL:", 135, yPos);
-    doc.text(`$${Number(total).toLocaleString('es-CO')}`, 165, yPos);
+    doc.text(`$${Number(total).toLocaleString('es-CO')}`, 170, yPos);
 
+    // FOOTER CORPORATIVO
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, pageHeight - 25, 195, pageHeight - 25);
+    
+    doc.setTextColor(100, 100, 100);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
-    doc.setTextColor(150, 150, 150);
-    doc.text("Gracias por su compra en Gorras Medellín. Comprobante generado por StreetCaps.", 20, yPos + 15);
+    doc.setFont('helvetica', 'bold');
+    doc.text("GORRAS MEDELLÍN - Tu estilo, nuestra pasión", 105, pageHeight - 18, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Alfonzo López - Medellin | WhatsApp: +57 300 6158180", 105, pageHeight - 13, { align: 'center' });
+    doc.text("Email: duvann1991@gmail.com | Instagram: @gorrasmedellin", 105, pageHeight - 8, { align: 'center' });
 
-    doc.save(`Venta_${saleId}_GMCAPS.pdf`);
+    doc.save(`Venta_${saleId}_GM_CAPS.pdf`);
   };
 
   return (
@@ -467,7 +492,7 @@ const VentasPage = () => {
 
       {/* Visualador de Comprobante Premium */}
       {imgModal.open && (
-        <div className="gm-zoom-overlay-admin" onClick={() => setImgModal({ open: false, src: '' })}>
+        <div className="gm-zoom-overlay-admin">
           <div className="gm-zoom-container-admin" onClick={e => e.stopPropagation()}>
             <button className="gm-zoom-close-admin" onClick={() => setImgModal({ open: false, src: '' })}>
               <FaTimes size={24} />
@@ -513,7 +538,7 @@ const VentasPage = () => {
                 className="ventas-btn-submit" 
                 disabled={loading}
               >
-                {loading ? 'Procesando...' : 'Guardar Venta'}
+                {modoVista === "formulario" ? 'Guardar Venta' : 'Guardar'}
               </button>
             )}
 
@@ -525,7 +550,7 @@ const VentasPage = () => {
                   padding: '6px 16px',
                   backgroundColor: '#0f172a',
                   color: '#ffffff',
-                  border: '1px solid rgba(255,255,255,0.4)',
+                  border: '1px solid #1e293b',
                   borderRadius: '8px',
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
@@ -537,7 +562,7 @@ const VentasPage = () => {
                   transition: 'all 0.2s ease'
                 }}
               >
-                <FaDownload /> PDF
+                <FaDownload /> Descargar PDF
               </button>
             )}
           </div>
@@ -607,10 +632,10 @@ const VentasPage = () => {
             <div className="sales-top-row">
               {/* CARD 1: DATOS DE VENTA */}
               <div className="venta-form-card">
-                <div className="section-title"><FaUser size={14} /> datos de venta</div>
+                <div className="section-title" style={{ color: '#8F9DB1' }}><FaUser size={14} /> Datos de venta</div>
                 <div className="form-data-grid">
                   <div className="form-field-group full-width" style={{ marginBottom: '8px' }}>
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800', textTransform: 'uppercase' }}>cliente <span className="required">*</span></label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Cliente : <span className="required">*</span></label>
                     <SearchSelect 
                       options={availableCustomers}
                       selectedItem={availableCustomers.find(c => String(c.id) === String(nuevaVenta.idCliente))}
@@ -644,7 +669,7 @@ const VentasPage = () => {
 
                   <div className="form-data-grid three-columns">
                     <div className="form-field-group">
-                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800', textTransform: 'uppercase' }}>método de pago <span className="required">*</span></label>
+                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Método de pago : <span className="required">*</span></label>
                       <select 
                         value={nuevaVenta.metodoPago || ''} 
                         onChange={(e) => actualizarProducto(-1, 'metodoPago', e.target.value)}
@@ -658,7 +683,7 @@ const VentasPage = () => {
                     </div>
 
                     <div className="form-field-group">
-                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800', textTransform: 'uppercase' }}>tipo de entrega <span className="required">*</span></label>
+                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Tipo de entrega : <span className="required">*</span></label>
                       <select 
                         value={nuevaVenta.tipoEntrega || ''} 
                         onChange={(e) => actualizarProducto(-1, 'tipoEntrega', e.target.value)}
@@ -671,7 +696,7 @@ const VentasPage = () => {
                     </div>
 
                     <div className="form-field-group">
-                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800', textTransform: 'uppercase' }}>fecha <span className="required">*</span></label>
+                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Fecha : <span className="required">*</span></label>
                       <DateInputWithCalendar 
                         value={nuevaVenta.fecha} 
                         onChange={(d) => actualizarProducto(-1, 'fecha', d)} 
@@ -682,7 +707,7 @@ const VentasPage = () => {
 
                   {nuevaVenta.tipoEntrega === 'envio' && (
                     <div className="form-field-group full-width">
-                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800', textTransform: 'uppercase' }}>dirección de envío <span className="required">*</span></label>
+                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Dirección de envío : <span className="required">*</span></label>
                       <input 
                         type="text" 
                         value={nuevaVenta.direccionEnvio || ''} 
@@ -697,8 +722,8 @@ const VentasPage = () => {
 
               {/* CARD 2: comprobante de pago */}
               <div className="venta-form-card">
-                <div className="section-title">
-                  <FaCamera size={14} /> comprobante de pago
+                <div className="section-title" style={{ color: '#8F9DB1' }}>
+                  <FaCamera size={14} /> Comprobante de pago
                   {requiresReceipt(nuevaVenta.metodoPago) && <span className="required"> *</span>}
                 </div>
                 <div className={`evidence-dropzone ${errors.evidencia ? 'has-error' : ''}`}>
@@ -729,17 +754,22 @@ const VentasPage = () => {
 
             {/* SEGUNDA FILA: PRODUCTOS (FULL WIDTH) */}
             <div className="venta-form-card full-width-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div className="section-title" style={{ marginBottom: 0, color: '#8F9DB1', fontWeight: '800' }}><FaBoxOpen size={14} /> PRODUCTOS</div>
-                <button onClick={agregarProducto} className="btn-add-row-yellow"><FaPlus size={10} /> AGREGAR</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px' }}>
+                <div className="section-title" style={{ marginBottom: 0, color: '#8F9DB1', fontWeight: '800' }}><FaBoxOpen size={14} /> Productos</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                  <button onClick={agregarProducto} className="btn-add-row-yellow"><FaPlus size={10} /> AGREGAR</button>
+                  <div className="total-summary" style={{ marginTop: 0 }}>
+                    <span className="total-label" style={{ fontSize: '12px' }}>Total a cobrar:</span>
+                    <span className="total-value" style={{ fontSize: '18px', color: '#F5C81B' }}>${calcularTotal().toLocaleString('es-CO')}</span>
+                  </div>
+                </div>
               </div>
               
-              <div className="products-table-header" style={{ gridTemplateColumns: '1.6fr 1.2fr 100px 140px 140px 40px' }}>
-                <span className="header-label">PRODUCTO</span>
-                <span className="header-label">TALLA</span>
-                <span className="header-label center">CANT</span>
-                <span className="header-label">PRECIO</span>
-                <span className="header-label important">SUBTOTAL</span>
+              <div className="products-table-header" style={{ gridTemplateColumns: '22px 1fr 110px 110px 40px' }}>
+                <span className="header-label">#</span>
+                <span className="header-label">Producto / Variantes</span>
+                <span className="header-label" style={{ textAlign: 'center' }}>Precio</span>
+                <span className="header-label" style={{ textAlign: 'center', color: '#00f2ff' }}>Subtotal</span>
                 <span></span>
               </div>
 
@@ -758,13 +788,6 @@ const VentasPage = () => {
                   />
                 ))}
               </div>
-              
-              <div className="totals-separator">
-                <div className="total-summary">
-                  <span className="total-label">total a cobrar:</span>
-                  <span className="total-value">${calcularTotal().toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-              </div>
             </div>
           </div>
         ) : (
@@ -773,42 +796,42 @@ const VentasPage = () => {
             <div className="sales-top-row">
               {/* CARD 1: DATOS DE VENTA (Detalle) */}
               <div className="venta-form-card">
-                <div className="section-title"><FaUser size={14} /> DATOS DE VENTA</div>
+                <div className="section-title" style={{ color: '#8F9DB1' }}><FaUser size={14} /> Datos de venta</div>
                 <div className="form-data-grid">
                   <div className="form-field-group">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>No. DE VENTA</label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>No. de venta</label>
                     <div className="product-input disabled important">{ventaViendo?.id}</div>
                   </div>
                   <div className="form-field-group">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>CLIENTE</label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Cliente</label>
                     <div className="product-input disabled">
                       {typeof ventaViendo?.cliente === 'object' ? ventaViendo?.cliente?.nombre : ventaViendo?.cliente}
                     </div>
                   </div>
                   <div className="form-field-group">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>MÉTODO DE PAGO</label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Método de pago</label>
                     <div className="product-input disabled">{ventaViendo?.metodoPago}</div>
                   </div>
                   <div className="form-field-group">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>FECHA</label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Fecha</label>
                     <div className="product-input disabled">{ventaViendo?.fecha}</div>
                   </div>
                   <div className="form-field-group">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>MÉTODO DE ENTREGA</label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Método de entrega</label>
                     <div className="product-input disabled">
                       {ventaViendo?.tipoEntrega === 'recoger' ? '🏪 Recogida en local' : '🚚 Envío a domicilio'}
                     </div>
                   </div>
                   <div className="form-field-group">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>TOTAL</label>
-                    <div className="product-input disabled success" style={{ fontWeight: 800 }}>
-                      ${calcularTotalViendo().toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Total</label>
+                    <div className="product-input disabled success" style={{ fontWeight: 800, textShadow: 'none', boxShadow: 'none' }}>
+                      ${calcularTotalViendo().toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </div>
                   </div>
 
                   {ventaViendo?.monto1 > 0 && (
                     <div className="form-field-group">
-                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>1RA CONSIGNACIÓN</label>
+                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>1ra consignación</label>
                       <div className="product-input disabled" style={{ color: '#f59e0b', fontWeight: 'bold' }}>
                         ${Number(ventaViendo.monto1).toLocaleString('es-CO')}
                       </div>
@@ -817,14 +840,14 @@ const VentasPage = () => {
 
                   {ventaViendo?.monto2 > 0 && (
                     <div className="form-field-group">
-                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>2DA CONSIGNACIÓN</label>
+                      <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>2da consignación</label>
                       <div className="product-input disabled" style={{ color: '#f59e0b', fontWeight: 'bold' }}>
                         ${Number(ventaViendo.monto2).toLocaleString('es-CO')}
                       </div>
                     </div>
                   )}
                   <div className="form-field-group full-width">
-                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>DIRECCIÓN DE ENVÍO</label>
+                    <label className="form-label" style={{ color: '#8F9DB1', fontWeight: '800' }}>Dirección de envío</label>
                     <div className="product-input disabled address-highlight" style={{ textAlign: 'left', padding: '10px 16px' }}>
                       {ventaViendo?.direccionEnvio || 'N/A'}
                     </div>
@@ -834,7 +857,7 @@ const VentasPage = () => {
 
               {/* CARD 2: COMPROBANTE DE PAGO (Detalle) */}
               <div className="venta-form-card">
-                <div className="section-title"><FaCamera size={14} /> COMPROBANTE(S) DE PAGO</div>
+                <div className="section-title" style={{ color: '#8F9DB1' }}><FaCamera size={14} /> Comprobante(s) de pago</div>
                 
                 {ventaViendo?.estado === 'Pago Incompleto' && (
                     <div className="partial-balance-banner">
@@ -871,7 +894,7 @@ const VentasPage = () => {
             {/* Fila inferior: PRODUCTOS (Detalle) */}
             <div className="venta-form-card full-width-card" style={{ marginTop: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <div className="section-title" style={{ marginBottom: 0, color: '#8F9DB1', fontWeight: '800' }}><FaBoxOpen size={14} /> PRODUCTOS ADQUIRIDOS</div>
+                <div className="section-title" style={{ marginBottom: 0, color: '#8F9DB1', fontWeight: '800' }}><FaBoxOpen size={14} /> Productos adquiridos</div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -889,10 +912,9 @@ const VentasPage = () => {
                   </div>
                 </div>
               </div>
-              <div className="products-table-header products-table-header-view">
-                <span className="header-label">PRODUCTO</span>
-                <span className="header-label">TALLA</span>
-                <span className="header-label center">CANTIDAD</span>
+              <div className="products-table-header products-table-header-view" style={{ gridTemplateColumns: '22px 1fr 115px 115px' }}>
+                <span className="header-label">#</span>
+                <span className="header-label">PRODUCTO / TALLAS</span>
                 <span className="header-label">PRECIO UNI.</span>
                 <span className="header-label important">SUBTOTAL</span>
               </div>
@@ -902,6 +924,24 @@ const VentasPage = () => {
                   .map((p, i) => (
                     <ProductoForm key={i} index={i} producto={p} isViewMode={true} />
                   ))}
+              </div>
+
+              {/* SUMA TOTAL DE LA VENTA EN EL DETALLE */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'flex-end', 
+                padding: '12px 20px', 
+                background: 'transparent',
+                borderTop: '1px solid #ffffff10',
+                borderBottomLeftRadius: '12px',
+                borderBottomRightRadius: '12px'
+              }}>
+                <div className="total-summary">
+                  <span className="total-label">TOTAL A COBRAR:</span>
+                  <span className="total-value" style={{ textShadow: 'none' }}>
+                    ${calcularTotalViendo().toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                </div>
               </div>
 
               <div className="detail-footer-actions" style={{ marginTop: '10px', borderTop: 'none' }}>

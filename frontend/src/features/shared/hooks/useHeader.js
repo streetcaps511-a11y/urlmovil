@@ -47,6 +47,7 @@ export const useHeader = () => {
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     onLogout();
+    navigate('/');
   };
 
   const cancelLogout = () => {

@@ -67,19 +67,20 @@ export const useComprasLogic = (location) => {
     proveedor: '',
     idProveedor: '',
     metodoPago: 'Efectivo',
-    fecha: new Date().toLocaleDateString('es-CO'),
+    fecha: '',
     productos: [{
       id: '',
       nombre: '',
-      talla: '',
-      cantidad: 1,
+      variantes: [{ talla: '', cantidad: 1, _tempKey: Math.random() }],
       precioCompra: '',
       precioVenta: '',
       precioMayorista6: '',
       precioMayorista80: '',
       _tempKey: Math.random()
     }],
-    estado: 'Pendiente'
+    estado: 'Completada',
+    numeroFactura: '',
+    fechaRegistro: ''
   });
 
   const proveedoresActivos = useMemo(() => {
@@ -183,34 +184,80 @@ export const useComprasLogic = (location) => {
         idProveedor: compra.idProveedor || '',
         metodoPago: compra.metodo,
         fecha: compra.fecha,
-        productos: compra.productos.map(p => ({ ...p, _tempKey: Math.random() })),
-        estado: compra.estado
+        // Agrupar productos por nombre para la UI de variantes
+        productos: (compra.productos || []).reduce((acc, p) => {
+          const existing = acc.find(item => item.nombre === p.nombre);
+          if (existing) {
+            existing.variantes.push({ talla: p.talla, cantidad: p.cantidad, _tempKey: Math.random() });
+          } else {
+            acc.push({
+              ...p,
+              variantes: [{ talla: p.talla, cantidad: p.cantidad, _tempKey: Math.random() }],
+              _tempKey: Math.random()
+            });
+          }
+          return acc;
+        }, []),
+        estado: compra.estado,
+        numeroFactura: compra.numeroRecibo || '',
+        fechaRegistro: compra.fechaRegistro || ''
       });
     } else {
+      // El usuario solicitó que siempre diga 10001 por defecto
+      const nextFactura = '10001';
+
+
       setCompraEditando(null);
       setNuevaCompra({
         proveedor: '',
         idProveedor: '',
         metodoPago: 'Efectivo',
-        fecha: new Date().toLocaleDateString('es-CO'),
+        fecha: '',
         productos: [{
           id: '',
           nombre: '',
-          talla: '',
-          cantidad: 1,
+          variantes: [{ talla: '', cantidad: 1, _tempKey: Math.random() }],
           precioCompra: '',
           precioVenta: '',
           precioMayorista6: '',
           precioMayorista80: '',
           _tempKey: Math.random()
         }],
-        estado: 'Pendiente'
+        estado: 'Completada',
+        numeroFactura: '',
+        nextFacturaPlaceholder: nextFactura,
+        fechaRegistro: ''
       });
     }
-  }, [showAlert, productos.length]);
+  }, [showAlert, productos.length, compras]);
+
 
   const mostrarDetalle = useCallback((compra) => {
-    setCompraViendo(compra);
+    if (!compra) return;
+    
+    // ⚡ AGRUPAR PRODUCTOS: Para que el detalle se vea igual al formulario (mismo producto, múltiples tallas)
+    const productosAgrupados = (compra.productos || []).reduce((acc, p) => {
+      const existing = acc.find(item => item.nombre === p.nombre);
+      const variantesDelProducto = p.variantes || [{ talla: p.talla, cantidad: p.cantidad }];
+
+      if (existing) {
+        // Evitar duplicados si por alguna razón ya existen
+        variantesDelProducto.forEach(v => {
+          const vExists = existing.variantes.find(ev => ev.talla === v.talla);
+          if (vExists) vExists.cantidad += (v.cantidad || 0);
+          else existing.variantes.push({ ...v, _tempKey: Math.random() });
+        });
+      } else {
+        acc.push({
+          ...p,
+          variantes: variantesDelProducto.map(v => ({ ...v, _tempKey: Math.random() })),
+          _tempKey: Math.random()
+        });
+      }
+      return acc;
+    }, []);
+
+    setCompraViendo({ ...compra, productos: productosAgrupados });
     setModoVista("detalle");
     setProductoPage(1);
   }, []);
@@ -230,8 +277,7 @@ export const useComprasLogic = (location) => {
       productos: [{
         id: '',
         nombre: '',
-        talla: '',
-        cantidad: 1,
+        variantes: [{ talla: '', cantidad: 1, _tempKey: Math.random() }],
         precioCompra: '',
         precioVenta: '',
         precioMayorista6: '',
@@ -258,41 +304,45 @@ export const useComprasLogic = (location) => {
 
     setNuevaCompra(p => {
       const n = [...p.productos];
-      const prod = { ...n[index], [campo]: valor };
-      n[index] = prod;
+      if (campo === 'variantes') {
+        n[index] = { ...n[index], variantes: valor };
+      } else {
+        n[index] = { ...n[index], [campo]: valor };
+      }
       return { ...p, productos: n };
     });
   }, [errors]);
 
   const eliminarProducto = useCallback((index) => {
     setNuevaCompra(p => {
-      if (p.productos.length > 1) {
-        return {
-          ...p,
-          productos: p.productos.filter((_, i) => i !== index)
-        };
-      } else {
-        // 🗑️ Si es el último, solo lo limpiamos (papelera para el primero)
-        return {
-          ...p,
-          productos: [{
+      if (index === 0) {
+        // 🗑️ La papelera del primero siempre limpia la fila, no la elimina
+        const newProducts = [...p.productos];
+        newProducts[0] = {
             id: '',
             nombre: '',
-            talla: '',
-            cantidad: 1,
+            variantes: [{ talla: '', cantidad: 1, _tempKey: Math.random() }],
             precioCompra: '',
             precioVenta: '',
             precioMayorista6: '',
             precioMayorista80: '',
             _tempKey: Math.random()
-          }]
+        };
+        return { ...p, productos: newProducts };
+      } else {
+        return {
+          ...p,
+          productos: p.productos.filter((_, i) => i !== index)
         };
       }
     });
   }, []);
 
   const calcularTotal = useCallback(() =>
-    nuevaCompra.productos.reduce((t, p) => t + (p.cantidad * (parseFloat(p.precioCompra) || 0)), 0),
+    nuevaCompra.productos.reduce((t, p) => {
+      const totalCant = (p.variantes || []).reduce((sum, v) => sum + (parseInt(v.cantidad) || 0), 0);
+      return t + (totalCant * (parseFloat(p.precioCompra) || 0));
+    }, 0),
   [nuevaCompra.productos]);
 
   const handleSubmit = useCallback(async (e) => {
@@ -300,25 +350,45 @@ export const useComprasLogic = (location) => {
     const e_fields = {};
     
     if (!nuevaCompra.proveedor) e_fields.proveedor = 'El proveedor es obligatorio';
+    if (!nuevaCompra.numeroFactura) e_fields.numeroFactura = 'El N° Factura es obligatorio';
     nuevaCompra.productos.forEach((p, i) => {
       if (!p.nombre) e_fields[`prod_${i}`] = true;
-      if (!p.talla) e_fields[`talla_${i}`] = true;
-      if (!p.cantidad || p.cantidad <= 0) e_fields[`qty_${i}`] = true;
+      (p.variantes || []).forEach((v, vi) => {
+        if (!v.talla) e_fields[`talla_${i}_${vi}`] = true;
+        if (!v.cantidad || v.cantidad <= 0) e_fields[`qty_${i}_${vi}`] = true;
+      });
       if (!p.precioCompra || p.precioCompra <= 0) e_fields[`price_${i}`] = true;
       if (!p.precioVenta || p.precioVenta <= 0) e_fields[`sell_${i}`] = true;
     });
 
     if (Object.keys(e_fields).length > 0) {
       setErrors(e_fields);
+      showAlert('Por favor, completa todos los campos obligatorios marcados en rojo', 'error');
       return;
     }
 
     const total = calcularTotal();
     const pvr = proveedoresActivos.find(p => p.nombre === nuevaCompra.proveedor);
 
+    // ⚡ APLANAR PRODUCTOS: Un producto con 3 variantes se convierte en 3 registros individuales para el backend
+    const flatProductos = nuevaCompra.productos.flatMap(p => 
+      (p.variantes || []).map(v => ({
+        id: p.id,
+        nombre: p.nombre,
+        talla: v.talla,
+        cantidad: v.cantidad,
+        precioCompra: p.precioCompra,
+        precioVenta: p.precioVenta,
+        precioMayorista6: p.precioMayorista6,
+        precioMayorista80: p.precioMayorista80
+      }))
+    );
+
     const payload = {
       ...nuevaCompra,
+      numeroRecibo: nuevaCompra.numeroFactura,
       idProveedor: pvr?.id || '',
+      productos: flatProductos,
       total
     };
 
@@ -332,7 +402,7 @@ export const useComprasLogic = (location) => {
         showAlert('Compra registrada correctamente');
       }
       fetchData();
-      setTimeout(() => mostrarLista(), 1500);
+      setTimeout(() => mostrarLista(), 200);
     } catch (error) {
       const serverMsg = error.response?.data?.message;
       showAlert(serverMsg || 'Error al procesar la compra', 'error');

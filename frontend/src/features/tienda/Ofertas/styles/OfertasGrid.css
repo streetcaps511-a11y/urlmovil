@@ -74,22 +74,24 @@
 }
 
 .gm-clean-search-btn {
-  padding: 8px 16px;
-  background-color: rgba(255, 193, 7, 0.05);
-  border: 1px solid #FFC107;
+  padding: 2px 12px;
+  height: 24px;
+  background-color: transparent;
+  border: 1px solid rgba(255, 193, 7, 0.4);
   color: #FFC107;
   border-radius: 999px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 500;
+  font-size: 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   transition: all 0.2s ease;
 }
 
 .gm-clean-search-btn:hover {
-  background: #FFC107;
-  color: #000;
+  background: rgba(255, 193, 7, 0.1);
+  transform: translateY(-1px);
 }
 
 .gm-search-count {

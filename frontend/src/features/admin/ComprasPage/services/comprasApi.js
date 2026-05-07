@@ -14,23 +14,33 @@ import {
 import api from "../../../shared/services/api";
 
 export const mapCompraData = (o) => ({
-  id: `#${o.IdCompra || o.id}`,
+  id: o.IdCompra || o.id,
   numCompra: o.IdCompra || o.id,
   proveedor: o.proveedorData?.companyName || o.proveedor || (o.Proveedor ? o.Proveedor.Nombre : ''),
   fecha: (o.Fecha || o.fecha) ? new Date(o.Fecha || o.fecha).toLocaleDateString('es-CO') : '',
   total: parseFloat(o.Total || o.total || 0),
   metodo: o.metodoPago || o.MetodoPago || '',
   estado: o.Estado || o.estado || '',
-  productos: (o.detalles || o.productos)?.map(p => ({
-    ...p,
-    nombre: p.nombreProducto || p.NombreProducto || p.nombre || '',
-    talla: p.talla || p.Talla || '',
-    cantidad: p.cantidad || p.Cantidad || 0,
-    precioCompra: p.precioCompra?.toString() || p.PrecioCompra?.toString() || p.precio?.toString() || '0',
-    precioVenta: p.precioVenta?.toString() || p.PrecioVenta?.toString() || '0',
-    precioMayorista6: p.precioMayorista6?.toString() || p.PrecioMayorista6?.toString() || '0',
-    precioMayorista80: p.precioMayorista80?.toString() || p.PrecioMayorista80?.toString() || '0'
-  })) || [],
+  numeroRecibo: o.numeroRecibo || o.NumeroRecibo || '',
+  fechaRegistro: (o.FechaRegistro || o.fechaRegistro) ? new Date(o.FechaRegistro || o.fechaRegistro).toLocaleDateString('es-CO') : '',
+  productos: (o.detalles || o.productos || []).map(p => {
+    // ⚡ SOPORTE PARA NUEVO FORMATO CONSOLIDADO (JSON)
+    const variantesConsolidadas = p.variantes || p.Variantes || [];
+    
+    return {
+      ...p,
+      nombre: p.nombreProducto || p.NombreProducto || p.nombre || '',
+      talla: p.talla || p.Talla || '',
+      cantidad: p.cantidad || p.Cantidad || 0,
+      variantes: variantesConsolidadas.length > 0 
+        ? variantesConsolidadas 
+        : [{ talla: p.talla || p.Talla || '', cantidad: p.cantidad || p.Cantidad || 0 }],
+      precioCompra: p.precioCompra?.toString() || p.PrecioCompra?.toString() || p.precio?.toString() || '0',
+      precioVenta: p.precioVenta?.toString() || p.PrecioVenta?.toString() || '0',
+      precioMayorista6: p.precioMayorista6?.toString() || p.PrecioMayorista6?.toString() || '0',
+      precioMayorista80: p.precioMayorista80?.toString() || p.PrecioMayorista80?.toString() || '0'
+    };
+  }),
   isActive: o.IsActive !== undefined ? o.IsActive : true
 });
 
@@ -49,23 +59,23 @@ export const createNewCompra = async (compraData) => {
   try {
     // Basic mapping for API payload
     // Convert from DD/MM/YYYY to YYYY-MM-DD if needed
-    let formattedDate = compraData.fecha;
-    if (formattedDate && formattedDate.includes('/')) {
-      const parts = formattedDate.split('/');
+    const formatDate = (d) => {
+      if (!d || !d.includes('/')) return d;
+      const parts = d.split('/');
       if (parts.length === 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        const year = parts[2];
-        formattedDate = `${year}-${month}-${day}`;
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
       }
-    }
+      return d;
+    };
 
     const payload = {
       idProveedor: compraData.idProveedor,
       metodoPago: compraData.metodoPago,
-      fecha: formattedDate,
+      fecha: formatDate(compraData.fecha),
       estado: compraData.estado,
       total: compraData.total,
+      numeroRecibo: compraData.numeroRecibo,
+      fechaRegistro: formatDate(compraData.fechaRegistro),
       productos: compraData.productos.map(p => ({
         idProducto: p.id,
         nombre: p.nombre,

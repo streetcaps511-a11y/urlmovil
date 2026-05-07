@@ -440,6 +440,7 @@ export const useCategoriaDetalle = () => {
     selectedSizes,
     allAvailableFilters,
     toggleFilter,
-    clearFilters
+    clearFilters,
+    normalizeSizes
   };
 };

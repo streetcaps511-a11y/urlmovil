@@ -7,7 +7,8 @@
   width: 100%;
   font-family: 'Inter', sans-serif;
   border-top: 1px solid rgba(255,255,255,0.05);
-  margin-top: 60px; /* Más separado del contenido */
+  margin-top: 0; 
+  padding-top: 60px; /* Movido a padding para evitar huecos */
 }
 
 .footer-container {

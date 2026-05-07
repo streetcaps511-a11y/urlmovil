@@ -107,6 +107,7 @@ const ProveedorFormFields = ({
   modalMode, 
   formData, 
   handleFieldChange, 
+  handleBlur,
   errors, 
   departamentos = [], 
   ciudades = [], 
@@ -123,6 +124,7 @@ const ProveedorFormFields = ({
   
   const commonFieldProps = {
     onChange: handleFieldChange,
+    onBlur: handleBlur,
     isViewMode,
     availableStatuses,
     departamentos,
@@ -136,46 +138,90 @@ const ProveedorFormFields = ({
     >
       <div className="form-body">
         {isJuridica ? (
-          <div className="form-row">
-            <div className="col">
-              <RenderField
-                {...commonFieldProps}
-                label="Tipo de persona"
-                fieldName="supplierType"
-                type="select"
-                required={true}
-                value={formData.supplierType}
-                error={errors.supplierType}
-                autoFocus={true}
-                options={["Persona jurídica", "Persona natural"]}
-              />
+          <>
+            <div className="form-row">
+              <div className="col">
+                <RenderField
+                  {...commonFieldProps}
+                  label="Tipo de persona"
+                  fieldName="supplierType"
+                  type="select"
+                  required={true}
+                  value={formData.supplierType}
+                  error={errors.supplierType}
+                  autoFocus={true}
+                  options={["Persona jurídica", "Persona natural"]}
+                />
+              </div>
+              <div className="col">
+                <RenderField
+                  {...commonFieldProps}
+                  label="NIT"
+                  fieldName="documentNumber"
+                  type="text"
+                  required={true}
+                  value={formData.documentNumber}
+                  error={errors.documentNumber}
+                  autoComplete="off"
+                />
+              </div>
             </div>
-            <div className="col">
-              <RenderField
-                {...commonFieldProps}
-                label="NIT"
-                fieldName="documentNumber"
-                type="text"
-                required={true}
-                value={formData.documentNumber}
-                error={errors.documentNumber}
-                autoComplete="off"
-              />
+            <div className="form-row">
+              <div className="col">
+                <RenderField
+                  {...commonFieldProps}
+                  label="Encargado"
+                  fieldName="contactName"
+                  type="text"
+                  required={true}
+                  value={formData.contactName}
+                  error={errors.contactName}
+                  autoComplete="name"
+                />
+              </div>
+              <div className="col">
+                <RenderField
+                  {...commonFieldProps}
+                  label="Empresa"
+                  fieldName="companyName"
+                  type="text"
+                  required={true}
+                  value={formData.companyName}
+                  error={errors.companyName}
+                  autoComplete="organization"
+                />
+              </div>
             </div>
-          </div>
+          </>
         ) : (
           <>
-            <RenderField
-              {...commonFieldProps}
-              label="Tipo de persona"
-              fieldName="supplierType"
-              type="select"
-              required={true}
-              value={formData.supplierType}
-              error={errors.supplierType}
-              autoFocus={true}
-              options={["Persona jurídica", "Persona natural"]}
-            />
+            <div className="form-row">
+              <div className="col">
+                <RenderField
+                  {...commonFieldProps}
+                  label="Tipo de persona"
+                  fieldName="supplierType"
+                  type="select"
+                  required={true}
+                  value={formData.supplierType}
+                  error={errors.supplierType}
+                  autoFocus={true}
+                  options={["Persona jurídica", "Persona natural"]}
+                />
+              </div>
+              <div className="col">
+                <RenderField
+                  {...commonFieldProps}
+                  label="Nombre completo"
+                  fieldName="contactName"
+                  type="text"
+                  required={true}
+                  value={formData.contactName}
+                  error={errors.contactName}
+                  autoComplete="name"
+                />
+              </div>
+            </div>
             <div className="form-row">
               <div className="col" style={{ flex: '0 0 45%' }}>
                 <RenderField
@@ -211,51 +257,6 @@ const ProveedorFormFields = ({
           </>
         )}
 
-        {isJuridica && (
-          <div className="form-row">
-            <div className="col">
-              <RenderField
-                {...commonFieldProps}
-                label="Empresa"
-                fieldName="companyName"
-                type="text"
-                required={true}
-                value={formData.companyName}
-                error={errors.companyName}
-                autoComplete="organization"
-              />
-            </div>
-            <div className="col">
-              <RenderField
-                {...commonFieldProps}
-                label="Encargado"
-                fieldName="contactName"
-                type="text"
-                required={true}
-                value={formData.contactName}
-                error={errors.contactName}
-                autoComplete="name"
-              />
-            </div>
-          </div>
-        )}
-
-        {isNatural && (
-          <div className="form-row">
-            <div className="col">
-              <RenderField
-                {...commonFieldProps}
-                label="Nombre completo"
-                fieldName="contactName"
-                type="text"
-                required={true}
-                value={formData.contactName}
-                error={errors.contactName}
-              />
-            </div>
-          </div>
-        )}
-
         <div className="form-row">
           <div className="col">
             <RenderField
@@ -286,16 +287,60 @@ const ProveedorFormFields = ({
             />
           </div>
           <div className="col">
-            <RenderField
-              {...commonFieldProps}
-              label="Teléfono"
-              fieldName="phone"
-              type="tel"
-              required={true}
-              value={formData.phone}
-              error={errors.phone}
-              autoComplete="tel"
-            />
+            <div className="form-field">
+              <label className="form-label" style={{ textTransform: 'none' }}>
+                Teléfono:<span className="required">*</span>
+              </label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <select
+                  name="countryCode"
+                  value={formData.countryCode || '+57'}
+                  onChange={handleFieldChange}
+                  className="form-select"
+                  style={{ 
+                    width: '55px', 
+                    flex: 'none', 
+                    padding: '0 2px', 
+                    fontSize: '10px',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                    textAlign: 'center'
+                  }}
+                  disabled={isViewMode}
+                >
+                  <option value="+57">🇨🇴 +57</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+34">🇪🇸 +34</option>
+                  <option value="+52">🇲🇽 +52</option>
+                  <option value="+54">🇦🇷 +54</option>
+                  <option value="+56">🇨🇱 +56</option>
+                  <option value="+51">🇵🇪 +51</option>
+                  <option value="+58">🇻🇪 +58</option>
+                  <option value="+507">🇵🇦 +507</option>
+                  <option value="+55">🇧🇷 +55</option>
+                  <option value="+593">🇪🇨 +593</option>
+                  <option value="+591">🇧🇴 +591</option>
+                  <option value="+598">🇺🇾 +598</option>
+                  <option value="+595">🇵🇾 +595</option>
+                  <option value="+506">🇨🇷 +506</option>
+                  <option value="+502">🇬🇹 +502</option>
+                  <option value="+504">🇭🇳 +504</option>
+                  <option value="+503">🇸🇻 +503</option>
+                  <option value="+505">🇳🇮 +505</option>
+                  <option value="+1">🇩🇴 +1</option>
+                </select>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone || ""}
+                  onChange={handleFieldChange}
+                  className={`form-input ${errors.phone ? 'has-error' : ''}`}
+                  disabled={isViewMode}
+                  placeholder="Número"
+                  style={{ flex: 1, marginLeft: '8px' }}
+                />
+              </div>
+              {errors.phone && <div className="field-error">{errors.phone}</div>}
+            </div>
           </div>
         </div>
 

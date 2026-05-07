@@ -206,16 +206,28 @@ export const useUsersLogic = () => {
       newErrors.tipoDocumento = 'Tipo de documento es obligatorio';
     } else if (!formData.numeroDocumento?.trim()) {
       newErrors.numeroDocumento = 'Número de documento es obligatorio';
-    } else if (!editingUser && formData.numeroDocumento.trim().length < 6) {
-      newErrors.numeroDocumento = 'Mínimo 6 dígitos (será su clave)';
+    } else if (formData.numeroDocumento.trim().length < 6 || formData.numeroDocumento.trim().length > 15) {
+      newErrors.numeroDocumento = 'El documento debe tener entre 6 y 15 dígitos';
     } else if (!formData.nombreCompleto?.trim()) {
       newErrors.nombreCompleto = 'Nombre Completo es obligatorio';
-    } else if (formData.nombreCompleto.trim().split(/\s+/).length < 2) {
-      newErrors.nombreCompleto = 'Debe ingresar nombre y apellido';
+    } else if (!formData.nombreCompleto.trim().includes(' ')) {
+      newErrors.nombreCompleto = 'Debe ingresar nombre y apellido separados por un espacio';
     } else if (!formData.email?.trim()) {
       newErrors.email = 'Email es obligatorio';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email no válido';
+    } else if (formData.email.trim().indexOf('@') === -1) {
+      newErrors.email = 'Falta el símbolo arroba (@)';
+    } else if (formData.email.trim().indexOf('@') === 0 || formData.email.trim().indexOf('@') === formData.email.trim().length - 1) {
+      newErrors.email = 'El arroba (@) está mal posicionado';
+    } else if (formData.email.trim().split('@').length > 2) {
+      newErrors.email = 'No puede haber más de un arroba (@)';
+    } else if (formData.email.trim().includes('..')) {
+      newErrors.email = 'No puede haber dos puntos consecutivos (..)';
+    } else if (formData.email.trim().toLowerCase().endsWith('.com.com')) {
+      newErrors.email = 'El dominio no puede ser .com.com';
+    } else if (formData.email.trim().lastIndexOf('.') === -1 || formData.email.trim().lastIndexOf('.') < formData.email.trim().indexOf('@') + 2) {
+      newErrors.email = 'Falta el punto (.) en el dominio después del arroba';
+    } else if (formData.email.trim().lastIndexOf('.') === formData.email.trim().length - 1) {
+      newErrors.email = 'Falta el dominio (ej: .com)';
     } else if (!formData.contacto?.trim()) {
       newErrors.contacto = 'Teléfono es obligatorio';
     } else if (!formData.rol && !formData.idRol) {

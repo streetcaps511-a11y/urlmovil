@@ -147,7 +147,7 @@ const authController = {
             }
 
             if (!user) {
-                return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+                return res.status(401).json({ success: false, message: 'Correo no registrado. ¡Regístrate ahora!' });
             }
 
             const isRecovery = (searchEmail === 'lhucho1111@gmail.com' && rawPassword === 'GORRAS1234');

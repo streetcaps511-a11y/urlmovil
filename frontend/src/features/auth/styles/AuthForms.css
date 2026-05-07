@@ -107,6 +107,23 @@
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s ease;
+  caret-color: #ffffff !important; /* Asegura que el cursor parpadeante sea blanco */
+  cursor: text !important;
+}
+
+/* Fix para campos autocompletados por el navegador */
+.input-field-group input:-webkit-autofill,
+.input-field-group input:-webkit-autofill:hover, 
+.input-field-group input:-webkit-autofill:focus, 
+.input-field-group input:-webkit-autofill:active,
+.input-decorated input:-webkit-autofill,
+.input-decorated input:-webkit-autofill:hover, 
+.input-decorated input:-webkit-autofill:focus, 
+.input-decorated input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #161b22 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 .input-decorated input {

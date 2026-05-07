@@ -4,22 +4,17 @@
 
 import '../styles/CategoriaDetalle.css';
 import '../styles/CategoryHero.css';
+import '../../shared/styles/Pagination.css';
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { FaArrowLeft, FaFilter } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa";
 import ProductCard from '../components/ProductCard';
 import ProductModal from '../components/ProductModal';
 import SuccessToast from '../components/SuccessToast';
+import PaginatedGrid from '../../shared/components/PaginatedGrid';
 import { useCategoriaDetalle } from '../hooks/useCategoriaDetalle';
 
 const CategoriaDetalle = () => {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [expandedFilters, setExpandedFilters] = useState({ colors: true, sizes: true });
-
-  const toggleFilterSection = (section) => {
-    setExpandedFilters(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
   const {
     nombreCategoria,
     descripcionCategoria,
@@ -41,24 +36,8 @@ const CategoriaDetalle = () => {
     getRatingFromProduct,
     safeImg,
     BULK_MIN_QTY,
-    // Filtros
-    selectedColors,
-    selectedSizes,
-    allAvailableFilters,
-    toggleFilter,
-    clearFilters
+    normalizeSizes,
   } = useCategoriaDetalle();
-
-  // Mapeo de colores (mismo que ProductosGrid)
-  const COLOR_MAP = {
-    'negro': '#000000', 'blanco': '#FFFFFF', 'rojo': '#FF0000', 'azul': '#2563eb',
-    'verde': '#008000', 'amarillo': '#FFFF00', 'gris': '#808080', 'naranja': '#FFA500',
-    'morado': '#800080', 'cafe': '#A52A2A', 'marrón': '#A52A2A', 'rosado': '#FFC0CB',
-    'rosa': '#FFC0CB', 'beige': '#F5F5DC', 'crema': '#FFFDD0', 'dorado': '#FFD700',
-    'plateado': '#C0C0C0', 'azul marino': '#000080', 'vinotinto': '#800000',
-    'khaki': '#F0E68C', 'oliva': '#808000',
-  };
-
 
   return (
     <div className="gm-home" style={{ background: "var(--gm-bg)" }}>
@@ -78,44 +57,19 @@ const CategoriaDetalle = () => {
       </div>
       
       <div className="gm-container">
-        {/* Botón para móviles */}
-        
-
         <div className="gm-products-page-layout" style={{ marginTop: '30px' }}>
-          
-          {/* SIDEBAR DE FILTROS */}
-          
-
           {/* CONTENIDO PRINCIPAL */}
           <main className="gm-products-main-content">
-            {/* Spinner discreto */}
-            {loading && productos.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '80px 20px', color: '#9CA3AF' }}>
-                <div className="gm-loader" style={{ 
-                  width: '36px', height: '36px', 
-                  border: '3px solid rgba(255,215,0,0.1)', 
-                  borderTop: '3px solid #F5C81B', 
-                  borderRadius: '50%',
-                  animation: 'gm-spin 1s linear infinite',
-                  margin: '0 auto 16px'
-                }} />
-                <p style={{ fontStyle: 'italic', opacity: 0.6 }}>Cargando productos...</p>
-              </div>
-            )}
 
-            {/* Grid de productos */}
+            {/* Grid de productos paginado */}
             {productos.length > 0 ? (
-              <div className="gm-products-grid">
-                {productos.map((product) => (
-                  <ProductCard 
-                    key={product.id}
-                    product={product} 
-                    onOpenModal={handleOpenModal}
-                    getRatingFromProduct={getRatingFromProduct}
-                    safeImg={safeImg}
-                  />
-                ))}
-              </div>
+              <PaginatedGrid 
+                products={productos}
+                openModal={handleOpenModal}
+                safeImg={safeImg}
+                getRatingFromProduct={getRatingFromProduct}
+                ProductCardComponent={ProductCard}
+              />
             ) : (
               !loading && (
                 <div style={{ textAlign: 'center', padding: '100px 20px', color: '#9CA3AF' }}>
@@ -141,7 +95,8 @@ const CategoriaDetalle = () => {
           decrementQuantity={decrementQuantity}
           incrementQuantity={incrementQuantity}
           handleQuantityInput={handleQuantityInput}
-          handleAddToCart={handleAddToCart}
+          handleModalAddToCart={handleAddToCart}
+          normalizeSizes={normalizeSizes}
         />
       )}
 

@@ -167,7 +167,7 @@
   text-decoration: line-through;
 }
 .gm-saving-pill {
-  font-size: 0.6rem; font-weight: 700;
+  font-size: 0.62rem; font-weight: 600;
   color: #10b981; letter-spacing: 0.2px;
 }
 
@@ -222,8 +222,8 @@
 
 .gm-saving-pill {
   color: #10b981;
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: 0.62rem;
+  font-weight: 600;
   margin-top: 2px;
 }
 

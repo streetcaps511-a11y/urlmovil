@@ -2,6 +2,7 @@
 
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { verifyUserToken } from "../../auth/services/authApi";
 import api from "../services/api";
 import SessionConflictModal from "../components/SessionConflictModal";
@@ -12,6 +13,7 @@ import { fetchDashboardStats } from "../../admin/dashboard/services/dashboardApi
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     try {
       const saved = sessionStorage.getItem("user");
@@ -103,8 +105,8 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem("refreshToken");
     
     // 🏠 Redirección instantánea al Home
-    window.location.href = '/';
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   // ✅ isAdmin como memoized value
   // Solo para administrador global (Bypass total de permisos)

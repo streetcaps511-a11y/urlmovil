@@ -178,10 +178,11 @@
   color: #f87171;
   font-size: 10px;
   font-weight: 500;
-  margin-top: 0px;
-  height: 10px;
+  margin-top: 2px;
+  min-height: 10px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  line-height: 1.2;
   gap: 3px;
   empty-cells: hide;
 }
@@ -241,6 +242,16 @@
 
 @keyframes spin {
   to { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Override Autofill styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #1E293B inset !important;
+    -webkit-text-fill-color: white !important;
+    transition: background-color 5000s ease-in-out 0s;
 }
 
 

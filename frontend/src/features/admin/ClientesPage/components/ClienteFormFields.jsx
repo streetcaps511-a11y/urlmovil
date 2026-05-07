@@ -23,9 +23,9 @@ export const ClienteFormFields = ({ modalState, formData, handleInputChange, err
       <div className="clientes-form-grid" style={{ gap: '10px' }}>
         <div className="clientes-form-row">
           <div className="clientes-form-col">{renderField('Tipo documento', cliente?.tipoDocumento)}</div>
-          <div className="clientes-form-col">{renderField('Número documento', cliente?.numeroDocumento)}</div>
+          <div className="clientes-form-col">{renderField(cliente?.tipoDocumento === 'NIT' ? 'Número' : 'Número documento', cliente?.numeroDocumento)}</div>
         </div>
-        <div>{renderField('Nombre completo', cliente?.nombreCompleto)}</div>
+        <div>{renderField(cliente?.tipoDocumento === 'NIT' ? 'Nombre de la empresa' : 'Nombre completo', cliente?.nombreCompleto)}</div>
         <div className="clientes-form-row">
           <div className="clientes-form-col">{renderField('Email', cliente?.email)}</div>
           <div className="clientes-form-col">{renderField('Teléfono', cliente?.telefono)}</div>
@@ -85,6 +85,7 @@ export const ClienteFormFields = ({ modalState, formData, handleInputChange, err
           type={type}
           value={formData[fieldName] || ''}
           onChange={(e) => handleInputChange(fieldName, e.target.value)}
+          maxLength={fieldName === 'documentNumber' ? (formData.documentType === 'NIT' ? 10 : (formData.documentType === 'Pasaporte' ? 20 : 15)) : undefined}
           className={`form-field-input ${isError ? 'has-error' : ''}`}
         />
         {isError && <div className="form-field-error-text">{isError}</div>}
@@ -96,9 +97,9 @@ export const ClienteFormFields = ({ modalState, formData, handleInputChange, err
     <div className="clientes-form-grid">
       <div className="clientes-form-row">
         <div className="clientes-form-col">{renderEditableField('Tipo documento', 'documentType', 'select')}</div>
-        <div className="clientes-form-col">{renderEditableField('N° documento', 'documentNumber', 'text')}</div>
+        <div className="clientes-form-col">{renderEditableField(formData.documentType === 'NIT' ? 'Número' : 'N° documento', 'documentNumber', 'text')}</div>
       </div>
-      <div>{renderEditableField('Nombre completo', 'fullName', 'text')}</div>
+      <div>{renderEditableField(formData.documentType === 'NIT' ? 'Nombre de la empresa' : 'Nombre completo', 'fullName', 'text')}</div>
       <div className="clientes-form-row">
         <div className="clientes-form-col">{renderEditableField('Email', 'email', 'text')}</div>
         <div className="clientes-form-col">{renderEditableField('Teléfono', 'phone', 'text')}</div>

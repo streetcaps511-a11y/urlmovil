@@ -60,6 +60,12 @@ const DetalleVenta = sequelize.define('DetalleVenta', {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         field: 'Subtotal'
+    },
+    noVenta: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'NoVenta',
+        comment: 'Número de venta vinculado al detalle'
     }
 }, {
     tableName: 'DetalleVentas',

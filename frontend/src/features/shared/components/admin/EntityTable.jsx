@@ -14,7 +14,7 @@ const CustomSwitch = ({ isCurrentlyActive, toggleAction, toggleTitle, activeColo
       type="button"
       className={`custom-switch ${isCurrentlyActive ? 'active' : 'inactive'}`}
       onClick={toggleAction}
-      title={toggleTitle}
+      data-tooltip={toggleTitle}
       style={{ '--switch-on-color': activeColor, '--switch-off-color': inactiveColor }}
     >
       <span className="custom-switch-thumb" />
@@ -109,6 +109,7 @@ const EntityTable = ({
                 colSpan={columns.length + 1} 
                 className="entity-table-cell entity-table-empty-row"
                 style={{ 
+                  backgroundColor: '#030712',
                   textAlign: 'center', 
                   padding: '100px 20px', 
                   color: 'rgba(255, 255, 255, 0.4)',
@@ -147,7 +148,7 @@ const EntityTable = ({
                       <td
                         key={`${col.field}-${colIndex}`}
                         className="entity-table-cell"
-                        title={typeof content === 'string' ? content : ' '}
+                        data-tooltip={typeof content === 'string' ? content : ' '}
                       >
                         {content}
                       </td>
@@ -158,31 +159,34 @@ const EntityTable = ({
                       {isRestrictedActionCheck && isRestrictedActionCheck(row) ? (
                         <div className="actions-wrapper">
                           {onView && (
-                            <FaEye
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onView(row)}
-                              title="Ver detalles"
-                            />
+                            <span data-tooltip="Ver detalles">
+                              <FaEye
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onView(row)}
+                              />
+                            </span>
                           )}
                         </div>
                       ) : admin ? (
                         <div className="actions-wrapper">
                           {onView && (
-                            <FaEye
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onView(row)}
-                              title="Ver detalles"
-                            />
+                            <span data-tooltip="Ver detalles">
+                              <FaEye
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onView(row)}
+                              />
+                            </span>
                           )}
                           {onEdit && (
-                            <FaEdit
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onEdit(row)}
-                              title="Editar"
-                            />
+                            <span data-tooltip="Editar">
+                              <FaEdit
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onEdit(row)}
+                              />
+                            </span>
                           )}
                         </div>
                       ) : (
@@ -198,94 +202,87 @@ const EntityTable = ({
                           )}
 
                           {onComplete && moduleType === 'compras' && row.estado === 'Pendiente' && (
-                            <FaCheckCircle
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onComplete(row)}
-                              title="Marcar como completada"
-                              style={{ color: '#10b981' }}
-                            />
+                            <span data-tooltip="Marcar como completada">
+                              <FaCheckCircle
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onComplete(row)}
+                                style={{ color: '#10b981' }}
+                              />
+                            </span>
                           )}
 
-                           {onApprove && (
-                            <FaCheckCircle
-                              size={18}
-                              className="action-icon action-approve"
-                              onClick={row.estado === 'Pendiente' ? () => onApprove(row) : undefined}
-                              title="Aprobar"
-                              style={{ 
-                                color: '#10b981', 
-                                display: row.estado === 'Pendiente' ? 'block' : 'none'
-                              }}
-                            />
+                           {onApprove && row.estado === 'Pendiente' && (
+                            <span data-tooltip="Aprobar">
+                              <FaCheckCircle
+                                size={18}
+                                className="action-icon action-approve"
+                                onClick={() => onApprove(row)}
+                                style={{ color: '#10b981' }}
+                              />
+                            </span>
                           )}
 
-                           {onReject && (
-                            <FaTimesCircle
-                              size={18}
-                              className="action-icon action-reject"
-                              onClick={row.estado === 'Pendiente' ? () => onReject(row) : undefined}
-                              title="Rechazar"
-                              style={{ 
-                                color: '#ef4444', 
-                                display: row.estado === 'Pendiente' ? 'block' : 'none'
-                              }}
-                            />
+                           {onReject && row.estado === 'Pendiente' && (
+                            <span data-tooltip="Rechazar">
+                              <FaTimesCircle
+                                size={18}
+                                className="action-icon action-reject"
+                                onClick={() => onReject(row)}
+                                style={{ color: '#ef4444' }}
+                              />
+                            </span>
                           )}
 
-                          {onPartialPago && (
-                            <FaExclamationCircle
-                              size={18}
-                              className="action-icon action-partial"
-                              onClick={(row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? () => onPartialPago(row) : undefined}
-                              title={(row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? "Marcar Pago Incompleto" : ""}
-                              style={{ 
-                                color: '#f59e0b', 
-                                opacity: (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? 1 : 0,
-                                cursor: (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? 'pointer' : 'default',
-                                pointerEvents: (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? 'auto' : 'none',
-                                display: (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? 'block' : 'none'
-                              }}
-                            />
+                          {onPartialPago && (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') && (
+                            <span data-tooltip="Pago Incompleto">
+                              <FaExclamationCircle
+                                size={18}
+                                className="action-icon action-partial"
+                                onClick={() => onPartialPago(row)}
+                                style={{ color: '#f59e0b' }}
+                              />
+                            </span>
                           )}
 
                           {onView && (
-                            <FaEye
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onView(row)}
-                              title="Ver detalles"
-                            />
+                            <span data-tooltip="Ver detalles">
+                              <FaEye
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onView(row)}
+                              />
+                            </span>
                           )}
 
                           {onEdit && moduleType !== 'ventas' && moduleType !== 'compras' && (
-                            <FaEdit
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onEdit(row)}
-                              title="Editar"
-                            />
+                            <span data-tooltip="Editar">
+                              <FaEdit
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onEdit(row)}
+                              />
+                            </span>
                           )}
 
-                           {onAnular && (moduleType === 'ventas' || moduleType === 'compras') && (
-                            <FaBan
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onAnular(row)}
-                              title="Anular"
-                              style={{ 
-                                display: (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') ? 'block' : 'none'
-                              }}
-                            />
+                           {onAnular && (moduleType === 'ventas' || moduleType === 'compras') && (row.estado === 'Pendiente' || row.estado === 'Pago Incompleto') && (
+                            <span data-tooltip="Anular">
+                              <FaBan
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onAnular(row)}
+                              />
+                            </span>
                           )}
 
                           {onDelete && moduleType !== 'ventas' && moduleType !== 'compras' && (
-                            <FaTrash
-                              size={18}
-                              className="action-icon"
-                              onClick={() => onDelete(row)}
-                              title="Eliminar"
-                            />
+                            <span data-tooltip="Eliminar">
+                              <FaTrash
+                                size={18}
+                                className="action-icon"
+                                onClick={() => onDelete(row)}
+                              />
+                            </span>
                           )}
                         </>
                       )}

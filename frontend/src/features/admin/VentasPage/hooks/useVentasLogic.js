@@ -55,7 +55,7 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
     cliente: '',
     metodoPago: '',
     fecha: new Date().toLocaleDateString('es-CO'),
-    productos: [{ id: '', nombre: '', talla: '', cantidad: '', precio: '', _tempKey: Date.now() + Math.random() }],
+    productos: [{ id: '', nombre: '', variantes: [{ talla: '', cantidad: 1, _tempKey: Date.now() }], precio: '', _tempKey: Date.now() + Math.random() }],
     estado: ventasCache.availableStatuses[0] || '',
     motivoRechazo: '',
     evidencia: null,
@@ -163,7 +163,7 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
       cliente: '',
       metodoPago: '',
       fecha: new Date().toLocaleDateString('es-CO'),
-      productos: [{ id: '', nombre: '', talla: '', cantidad: '', precio: '', _tempKey: Date.now() + Math.random() }],
+      productos: [{ id: '', nombre: '', variantes: [{ talla: '', cantidad: 1, _tempKey: Date.now() }], precio: '', _tempKey: Date.now() + Math.random() }],
       estado: availableStatuses[0] || '',
       motivoRechazo: '',
       evidencia: null,
@@ -185,7 +185,7 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
   const agregarProducto = () => setNuevaVenta(p => ({
     ...p,
     // 🚀 Añadir al principio (de primero)
-    productos: [{ id: '', nombre: '', talla: '', cantidad: 1, precio: '', _tempKey: Math.random() }, ...p.productos]
+    productos: [{ id: '', nombre: '', variantes: [{ talla: '', cantidad: 1, _tempKey: Date.now() }], precio: '', _tempKey: Math.random() }, ...p.productos]
   }));
   
   const actualizarProducto = (index, campo, valor) => {
@@ -216,8 +216,15 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
     }
   };
   
-  const calcularTotal = () => nuevaVenta.productos.reduce((t, p) => t + (p.cantidad * (parseFloat(p.precio) || 0)), 0);
-  const calcularTotalViendo = () => ventaViendo?.productos.reduce((t, p) => t + (p.cantidad * (parseFloat(p.precio) || 0)), 0) || 0;
+  const calcularTotal = () => nuevaVenta.productos.reduce((t, p) => {
+    const qtyTotal = (p.variantes || []).reduce((sum, v) => sum + (parseInt(v.cantidad) || 0), 0);
+    return t + (qtyTotal * (parseFloat(p.precio) || 0));
+  }, 0);
+  
+  const calcularTotalViendo = () => {
+    if (!ventaViendo) return 0;
+    return (ventaViendo.productos || []).reduce((t, p) => t + (p.cantidad * (parseFloat(p.precio) || 0)), 0);
+  };
 
   // ====== ACCIONES ======
   const handleImageUpload = (e) => {
@@ -258,26 +265,30 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
 
     nuevaVenta.productos.forEach((p, i) => {
       if (!p.id) e[`producto_id_${i}`] = true;
-      if (!p.talla) e[`producto_talla_${i}`] = true;
-      if (!p.cantidad || p.cantidad <= 0) e[`producto_cantidad_${i}`] = { msg: 'Obligatorio' };
       if (!p.precio || p.precio <= 0) e[`producto_precio_${i}`] = true;
       
-      // 📦 VALIDACIÓN DE STOCK
-      if (p.id && p.talla) {
-        const prodData = availableProducts.find(ap => ap.id === parseInt(p.id));
-        if (prodData && Array.isArray(prodData.tallasStock)) {
-          const sizeInfo = prodData.tallasStock.find(ts => ts.talla === p.talla);
-          const stockDisponible = sizeInfo ? parseInt(sizeInfo.cantidad) : 0;
-          
-          if (parseInt(p.cantidad) > stockDisponible) {
-            e[`producto_cantidad_${i}`] = { 
-              msg: 'Excede el stock actual', 
-              disponible: stockDisponible 
-            };
-            hasStockError = true;
+      // Validar variantes
+      (p.variantes || []).forEach((v, vi) => {
+        if (!v.talla) e[`producto_talla_${i}_${vi}`] = true;
+        if (!v.cantidad || v.cantidad <= 0) e[`producto_cantidad_${i}_${vi}`] = { msg: 'Obligatorio' };
+
+        // 📦 VALIDACIÓN DE STOCK POR VARIANTE
+        if (p.id && v.talla) {
+          const prodData = availableProducts.find(ap => ap.id === parseInt(p.id));
+          if (prodData && Array.isArray(prodData.tallasStock)) {
+            const sizeInfo = prodData.tallasStock.find(ts => ts.talla === v.talla);
+            const stockDisponible = sizeInfo ? parseInt(sizeInfo.cantidad) : 0;
+            
+            if (parseInt(v.cantidad) > stockDisponible) {
+              e[`producto_cantidad_${i}_${vi}`] = { 
+                msg: 'Excede stock', 
+                disponible: stockDisponible 
+              };
+              hasStockError = true;
+            }
           }
         }
-      }
+      });
     });
     
     setErrors(e);
@@ -297,8 +308,20 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
     if (!validate()) return;
     setLoading(true);
     try {
+      // ⚡ APLANAR PRODUCTOS: Un producto con 3 variantes se convierte en 3 productos individuales para el backend
+      const productosAplanados = nuevaVenta.productos.flatMap(p => 
+        (p.variantes || []).map(v => ({
+          id: p.id,
+          nombre: p.nombre,
+          talla: v.talla,
+          cantidad: v.cantidad,
+          precio: p.precio
+        }))
+      );
+
       const saleToCreate = {
         ...nuevaVenta,
+        productos: productosAplanados,
         total: calcularTotal()
       };
       const created = await ventasService.createSale(saleToCreate);

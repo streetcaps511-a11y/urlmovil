@@ -1,95 +1,37 @@
-/* === CONTROLADOR DE BACKEND === 
-   Recibe las solicitudes (Requests) desde las Rutas, procesa las variables enviadas por el cliente, 
-   ejecuta las consultas a la base de datos protegiendo contra inyección SQL, 
-   y devuelve las respuestas en formato JSON. */
+/* === CONTROLADOR DE BACKEND (COMPRAS) === 
+   Gestiona el registro de entrada de mercancía, actualización de inventario y 
+   seguimiento de proveedores. */
 
-// controllers/compras.controller.js
 import { Op } from 'sequelize';
 import { 
     Compra, 
     DetalleCompra, 
     Proveedor, 
     Producto, 
-    Categoria,
     sequelize 
 } from '../models/index.js';
 
 const compraController = {
-    /**
-     * Obtener estadísticas de compras
-     */
     getEstadisticas: async (req, res) => {
         try {
             const total = await Compra.count();
-            const totalGastado = await Compra.sum('total') || 0;
-            const proveedores = await Proveedor.count();
-            res.json({ success: true, data: { total, totalGastado, proveedores } });
+            const totalInversion = await Compra.sum('total') || 0;
+            const comprasMes = await Compra.count({ 
+                where: { 
+                    fecha: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } 
+                } 
+            });
+            res.json({ success: true, data: { total, totalInversion, comprasMes } });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
     },
 
-    /**
-     * Obtener todas las compras
-     */
-    getAllCompras: async (req, res) => {
-        try {
-            const { page = 1, limit = 10 } = req.query;
-            const offset = (page - 1) * limit;
-
-            const { count, rows } = await Compra.findAndCountAll({
-                include: [
-                    { model: Proveedor, as: 'proveedorData', attributes: ['id', 'companyName', 'documentNumber'] },
-                    { model: DetalleCompra, as: 'detalles' }
-                ],
-                limit: parseInt(limit),
-                offset: parseInt(offset),
-                order: [
-                    ['id', 'DESC'],
-                    [{ model: DetalleCompra, as: 'detalles' }, 'IdDetalle', 'DESC']
-                ]
-            });
-
-            const rowsFormateadas = rows.map(c => {
-                const json = c.toJSON();
-                // Si el proveedor fue borrado, usar el nombre histórico
-                if (!json.proveedorData && json.proveedorNombreHistorico) {
-                    json.proveedorData = { 
-                        companyName: json.proveedorNombreHistorico, 
-                        documentNumber: 'Proveedor Eliminado',
-                        isDeleted: true 
-                    };
-                }
-                return json;
-            });
-
-            res.json({
-                success: true,
-                data: rowsFormateadas,
-                pagination: {
-                    totalItems: count,
-                    currentPage: parseInt(page),
-                    totalPages: Math.ceil(count / limit)
-                }
-            });
-        } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
-        }
-    },
-
-    /**
-     * Compras por Proveedor
-     */
     getComprasByProveedor: async (req, res) => {
         try {
-            const { proveedorId } = req.params;
             const data = await Compra.findAll({ 
-                where: { idProveedor: proveedorId },
-                include: [{ model: DetalleCompra, as: 'detalles' }],
-                order: [
-                    ['id', 'DESC'],
-                    [{ model: DetalleCompra, as: 'detalles' }, 'IdDetalle', 'DESC']
-                ]
+                where: { idProveedor: req.params.proveedorId },
+                include: [{ model: DetalleCompra, as: 'detalles' }]
             });
             res.json({ success: true, data });
         } catch (error) {
@@ -97,272 +39,201 @@ const compraController = {
         }
     },
 
-    /**
-     * Obtener compra por ID
-     */
+    getAllCompras: async (req, res) => {
+        try {
+            const { page = 1, limit = 50 } = req.query;
+            const offset = (page - 1) * limit;
+
+            const count = await Compra.count();
+            const comprasRows = await Compra.findAll({
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [['fecha', 'DESC']],
+                include: [
+                    { model: Proveedor, as: 'proveedorData', attributes: ['id', 'nombre', 'email'] },
+                    { 
+                        model: DetalleCompra, 
+                        as: 'detalles', 
+                        include: [{ model: Producto, as: 'producto', attributes: ['id', 'nombre'], paranoid: false }] 
+                    }
+                ]
+            });
+
+            res.json({ 
+                success: true, 
+                data: comprasRows, 
+                pagination: { 
+                    totalItems: count, 
+                    currentPage: parseInt(page), 
+                    totalPages: Math.ceil(count / limit) 
+                } 
+            });
+        } catch (error) {
+            console.error('❌ Error en getAllCompras:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     getCompraById: async (req, res) => {
         try {
-            const { id } = req.params;
-            const compra = await Compra.findByPk(id, {
+            const compra = await Compra.findByPk(req.params.id, { 
                 include: [
                     { model: Proveedor, as: 'proveedorData' },
                     { 
                         model: DetalleCompra, 
-                        as: 'detalles',
-                        include: [{ model: Producto, as: 'producto', paranoid: false }]
+                        as: 'detalles', 
+                        include: [{ model: Producto, as: 'producto', paranoid: false }] 
                     }
-                ],
-                order: [
-                    [{ model: DetalleCompra, as: 'detalles' }, 'id', 'DESC']
-                ]
+                ] 
             });
             if (!compra) return res.status(404).json({ success: false, message: 'Compra no encontrada' });
-            
-            const json = compra.toJSON();
-            // Fallback para proveedor borrado en vista individual
-            if (!json.proveedorData && json.proveedorNombreHistorico) {
-                json.proveedorData = { 
-                    companyName: json.proveedorNombreHistorico, 
-                    documentNumber: 'Proveedor Eliminado',
-                    isDeleted: true
-                };
-            }
-            
-            res.json({ success: true, data: json });
+            res.json({ success: true, data: compra });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
     },
 
-    /**
-     * Generar Reporte (Mock)
-     */
     generarReporte: async (req, res) => {
-        res.json({ success: true, message: 'Reporte generado' });
+        res.json({ success: true, message: 'Reporte generado exitosamente' });
     },
 
-    /**
-     * Crear nueva compra (AUMENTA stock)
-     */
     createCompra: async (req, res) => {
         const transaction = await sequelize.transaction();
         try {
-            const { idProveedor, productos, metodoPago, fecha, estado } = req.body;
-            if (!idProveedor || !productos) throw new Error('Datos incompletos');
+            const { idProveedor, productos, metodoPago, numeroRecibo, fecha } = req.body;
 
             let totalCompra = 0;
-            const detalles = [];
+            const detallesFinales = [];
 
             for (const item of productos) {
-                const subtotal = item.cantidad * item.precioCompra;
-                totalCompra += subtotal;
-
-                // 1. Buscar producto por id o por nombre
-                let producto = null;
-                if (item.idProducto) {
-                    producto = await Producto.findByPk(item.idProducto);
-                } else if (item.nombre) {
-                    // Usar iLike para que sea case insensitive
-                    producto = await Producto.findOne({ where: { nombre: { [Op.iLike]: item.nombre } } });
-                }
-
-                if (estado === 'Completada') {
-                    if (producto) {
-                        // Aumentar stock del producto existente
-                        const stock = [...(producto.tallasStock || [])];
-                        const idx = stock.findIndex(s => s.talla === item.talla);
-                        if (idx !== -1) stock[idx].cantidad += parseInt(item.cantidad);
-                        else stock.push({ talla: item.talla, cantidad: parseInt(item.cantidad) });
-                        
-                        const totalStock = stock.reduce((sum, t) => sum + (t.cantidad || 0), 0);
-
-                        await producto.update({ 
-                            tallasStock: stock,
-                            stock: totalStock,
-                            precioCompra: item.precioCompra || producto.precioCompra,
-                            precioVenta: item.precioVenta || producto.precioVenta,
-                            precioMayorista6: item.precioMayorista6 || producto.precioMayorista6,
-                            precioMayorista80: item.precioMayorista80 || producto.precioMayorista80,
-                            isActive: false
-                        }, { transaction });
-                        
-                        item.idProducto = producto.id;
-                    } else {
-                        // Crear producto nuevo en el módulo de productos
-                        const catDefault = await Categoria.findOne({ order: [['id', 'ASC']] });
-                        const idCat = catDefault ? catDefault.id : 1;
-                        const nombreCat = catDefault ? catDefault.nombre : 'General';
-
-                        producto = await Producto.create({
-                            nombre: item.nombre,
-                            precioCompra: item.precioCompra || 0,
-                            precioVenta: item.precioVenta || 0,
-                            precioMayorista6: item.precioMayorista6 || 0,
-                            precioMayorista80: item.precioMayorista80 || 0,
-                            stock: parseInt(item.cantidad),
-                            tallasStock: [{ talla: item.talla, cantidad: parseInt(item.cantidad) }],
-                            idCategoria: idCat,
-                            categoria: nombreCat,
-                            isActive: false,
-                            enInventario: true,
-                            colores: [],
-                            imagenes: []
-                        }, { transaction });
-                        
-                        item.idProducto = producto.id;
-                    }
-                }
+                const productId = item.idProducto || item.id;
                 
-                detalles.push({ 
-                    ...item, 
-                    idProducto: (item.id !== undefined && item.id !== '' && item.id !== null) ? parseInt(item.id, 10) : null,
-                    subtotal 
+                // Procesar variantes (tallas y cantidades)
+                const variantes = item.variantes || [];
+                const totalCantidadItem = variantes.reduce((sum, v) => sum + (parseInt(v.cantidad) || 0), 0);
+                const subtotalItem = totalCantidadItem * (parseFloat(item.precioCompra) || 0);
+                totalCompra += subtotalItem;
+
+                detallesFinales.push({
+                    idProducto: productId,
+                    nombreProducto: item.nombre || item.nombreProducto,
+                    variantes: variantes,
+                    cantidad: totalCantidadItem,
+                    precioCompra: item.precioCompra,
+                    precioVenta: item.precioVenta,
+                    precioMayorista6: item.precioMayorista6,
+                    precioMayorista80: item.precioMayorista80,
+                    subtotal: subtotalItem,
+                    nFactura: numeroRecibo
                 });
+
+                // Actualizar stock del producto (Incrementar)
+                const producto = await Producto.findByPk(productId, { transaction });
+                if (producto) {
+                    const tallasStock = JSON.parse(JSON.stringify(producto.tallasStock || []));
+                    
+                    for (const v of variantes) {
+                        const idx = tallasStock.findIndex(s => String(s.talla).toUpperCase().trim() === String(v.talla).toUpperCase().trim());
+                        if (idx !== -1) {
+                            tallasStock[idx].cantidad = (parseInt(tallasStock[idx].cantidad) || 0) + (parseInt(v.cantidad) || 0);
+                        } else {
+                            tallasStock.push({ talla: v.talla, cantidad: parseInt(v.cantidad) || 0 });
+                        }
+                    }
+
+                    const nuevoStockGlobal = tallasStock.reduce((sum, s) => sum + (parseInt(s.cantidad) || 0), 0);
+                    
+                    await producto.update({
+                        tallasStock,
+                        stock: nuevoStockGlobal,
+                        // Actualizar precios base del producto según la última compra
+                        precioVenta: item.precioVenta || producto.precioVenta,
+                        precioMayorista6: item.precioMayorista6 || producto.precioMayorista6,
+                        precioMayorista80: item.precioMayorista80 || producto.precioMayorista80
+                    }, { transaction });
+                }
             }
 
-            const nueva = await Compra.create({
+            const nuevaCompra = await Compra.create({
                 idProveedor,
+                numeroRecibo,
                 fecha: fecha || new Date(),
+                fechaRegistro: new Date(),
                 total: totalCompra,
-                estado: estado || 'Pendiente',
                 metodoPago: metodoPago || 'Efectivo',
-                isActive: true
+                estado: 'Completada'
             }, { transaction });
 
-            for (const d of detalles) {
-                await DetalleCompra.create({ 
-                    idCompra: nueva.id, 
-                    idProducto: d.idProducto || null,
-                    nombreProducto: d.nombre,
-                    talla: d.talla,
-                    cantidad: d.cantidad,
-                    precioCompra: d.precioCompra,
-                    precioVenta: d.precioVenta,
-                    precioMayorista6: d.precioMayorista6 || 0,
-                    precioMayorista80: d.precioMayorista80 || 0,
-                    subtotal: d.subtotal
+            for (const d of detallesFinales) {
+                await DetalleCompra.create({
+                    ...d,
+                    idCompra: nuevaCompra.id
                 }, { transaction });
             }
 
             await transaction.commit();
-            res.status(201).json({ success: true, data: nueva });
+            
+            const resultado = await Compra.findByPk(nuevaCompra.id, {
+                include: [
+                    { model: Proveedor, as: 'proveedorData' },
+                    { model: DetalleCompra, as: 'detalles', include: ['producto'] }
+                ]
+            });
+
+            res.status(201).json({ success: true, data: resultado });
         } catch (error) {
-            await transaction.rollback();
-            console.error('ERROR EN CREATE COMPRA:', error);
-            const detailedError = error.errors ? error.errors.map(e => e.message).join(', ') : error.message;
-            res.status(400).json({ success: false, message: detailedError, stack: error.stack });
+            if (transaction) await transaction.rollback();
+            console.error('❌ Error en createCompra:', error);
+            res.status(400).json({ success: false, message: error.message });
         }
     },
 
-    /**
-     * Anular compra (REVIERTE stock)
-     */
+    updateStatus: async (req, res) => {
+        try {
+            const { estado } = req.body;
+            await Compra.update({ estado }, { where: { id: req.params.id } });
+            res.json({ success: true, message: 'Estado actualizado correctamente' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     anularCompra: async (req, res) => {
         const transaction = await sequelize.transaction();
         try {
-            const { id } = req.params;
-            const compra = await Compra.findByPk(id, { include: ['detalles'] });
-            if (!compra || compra.estado === 'Anulada') throw new Error('Inválido');
+            const compra = await Compra.findByPk(req.params.id, {
+                include: [{ model: DetalleCompra, as: 'detalles' }]
+            });
 
+            if (!compra || compra.estado === 'Anulada') {
+                throw new Error('Compra no encontrada o ya anulada');
+            }
+
+            // Revertir stock (Restar lo que se había sumado)
             for (const d of compra.detalles) {
-                if (!d.idProducto) continue;
-                const p = await Producto.findByPk(d.idProducto);
-                if (p) {
-                    const stock = [...(p.tallasStock || [])];
-                    const idx = stock.findIndex(s => s.talla === d.talla);
-                    if (idx !== -1) {
-                        stock[idx].cantidad = Math.max(0, stock[idx].cantidad - d.cantidad);
-                        const totalStock = stock.reduce((sum, t) => sum + (t.cantidad || 0), 0);
-                        await p.update({ tallasStock: stock, stock: totalStock }, { transaction });
+                const producto = await Producto.findByPk(d.idProducto, { transaction });
+                if (producto) {
+                    const tallasStock = JSON.parse(JSON.stringify(producto.tallasStock || []));
+                    const variantes = d.variantes || [];
+
+                    for (const v of variantes) {
+                        const idx = tallasStock.findIndex(s => String(s.talla).toUpperCase().trim() === String(v.talla).toUpperCase().trim());
+                        if (idx !== -1) {
+                            tallasStock[idx].cantidad = Math.max(0, (parseInt(tallasStock[idx].cantidad) || 0) - (parseInt(v.cantidad) || 0));
+                        }
                     }
+
+                    const nuevoStockGlobal = tallasStock.reduce((sum, s) => sum + (parseInt(s.cantidad) || 0), 0);
+                    await producto.update({ tallasStock, stock: nuevoStockGlobal }, { transaction });
                 }
             }
 
             await compra.update({ estado: 'Anulada' }, { transaction });
             await transaction.commit();
-            res.json({ success: true, message: 'Anulada' });
+
+            res.json({ success: true, message: 'Compra anulada correctamente' });
         } catch (error) {
-            await transaction.rollback();
-            res.status(400).json({ success: false, message: error.message });
-        }
-    },
-
-    /**
-     * Actualizar estado de compra
-     */
-    updateStatus: async (req, res) => {
-        const transaction = await sequelize.transaction();
-        try {
-            const { id } = req.params;
-            const { estado } = req.body;
-            
-            const compra = await Compra.findByPk(id, {
-                include: [{ model: DetalleCompra, as: 'detalles' }]
-            });
-            if (!compra) {
-                await transaction.rollback();
-                return res.status(404).json({ success: false, message: 'Compra no encontrada' });
-            }
-
-            // Si pasa a completada y antes no lo estaba, procesar productos
-            if (estado === 'Completada' && compra.estado !== 'Completada') {
-                for (const item of compra.detalles) {
-                    let producto = null;
-                    if (item.idProducto && !isNaN(item.idProducto)) {
-                        producto = await Producto.findByPk(item.idProducto);
-                    } else if (item.nombreProducto) {
-                        producto = await Producto.findOne({ where: { nombre: { [Op.iLike]: item.nombreProducto } } });
-                    }
-
-                    if (producto) {
-                        const stock = [...(producto.tallasStock || [])];
-                        const idx = stock.findIndex(s => s.talla === item.talla);
-                        if (idx !== -1) stock[idx].cantidad += parseInt(item.cantidad);
-                        else stock.push({ talla: item.talla, cantidad: parseInt(item.cantidad) });
-                        
-                        const totalStock = stock.reduce((sum, t) => sum + (t.cantidad || 0), 0);
-
-                        await producto.update({ 
-                            tallasStock: stock,
-                            stock: totalStock,
-                            precioCompra: item.precioCompra || producto.precioCompra,
-                            precioVenta: item.precioVenta || producto.precioVenta,
-                            precioMayorista6: item.precioMayorista6 || producto.precioMayorista6,
-                            precioMayorista80: item.precioMayorista80 || producto.precioMayorista80,
-                            isActive: false // Los productos llegan inactivos
-                        }, { transaction });
-                    } else {
-                        const catDefault = await Categoria.findOne({ order: [['id', 'ASC']] });
-                        const idCat = catDefault ? catDefault.id : 1;
-                        const nombreCat = catDefault ? catDefault.nombre : 'General';
-
-                        const nuevoProd = await Producto.create({
-                            nombre: item.nombreProducto,
-                            precioCompra: item.precioCompra || 0,
-                            precioVenta: item.precioVenta || 0,
-                            precioMayorista6: item.precioMayorista6 || 0,
-                            precioMayorista80: item.precioMayorista80 || 0,
-                            stock: parseInt(item.cantidad),
-                            tallasStock: [{ talla: item.talla, cantidad: parseInt(item.cantidad) }],
-                            idCategoria: idCat,
-                            categoria: nombreCat,
-                            isActive: false,
-                            enInventario: true,
-                            colores: [],
-                            imagenes: []
-                        }, { transaction });
-
-                        // Actualizar idProducto en el detalle
-                        await item.update({ idProducto: nuevoProd.id }, { transaction });
-                    }
-                }
-            }
-            
-            await compra.update({ estado }, { transaction });
-            await transaction.commit();
-            res.json({ success: true, data: compra });
-        } catch (error) {
-            await transaction.rollback();
+            if (transaction) await transaction.rollback();
             res.status(400).json({ success: false, message: error.message });
         }
     }

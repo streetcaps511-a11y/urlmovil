@@ -49,8 +49,7 @@ const Proveedor = sequelize.define('Proveedor', {
         unique: true,
         validate: {
             notEmpty: { msg: 'El número de documento es requerido' },
-            len: { args: [5, 20], msg: 'El número de documento debe tener entre 5 y 20 caracteres' },
-            isNumeric: { msg: 'El documento debe contener solo números' }
+            len: { args: [5, 20], msg: 'El número de documento debe tener entre 5 y 20 caracteres' }
         },
         field: 'NumeroDocumento'
     },

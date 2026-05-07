@@ -312,9 +312,16 @@ const ventaController = {
                 comprobante: comprobanteUrl
             }, { transaction });
 
+            // 🔥 ASIGNAR NO. VENTA AL REGISTRO RECIÉN CREADO
+            await nuevaVentaObj.update({ noVenta: String(nuevaVentaObj.id) }, { transaction });
+
             for (const d of detallesData) {
-                // 1. Crear el detalle de la venta
-                await DetalleVenta.create({ idVenta: nuevaVentaObj.id, ...d }, { transaction });
+                // 1. Crear el detalle de la venta con el NoVenta vinculado
+                await DetalleVenta.create({ 
+                    idVenta: nuevaVentaObj.id, 
+                    noVenta: String(nuevaVentaObj.id),
+                    ...d 
+                }, { transaction });
 
                 // 🛒 2. SI ES ADMIN, DESCONTAMOS STOCK DE UNA VEZ
                 if (estadoInicial === 'Completada') {

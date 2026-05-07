@@ -16,7 +16,18 @@ const CustomColorSelect = ({ value, onChange, options }) => {
       >
         <span className="color-select-label">{value || "Seleccionar"}</span>
         {selectedColorObj && (
-          <div className="color-select-circle" style={{ color: selectedColorObj.hex }} />
+          <div 
+            className="color-select-circle" 
+            style={{ 
+              backgroundColor: selectedColorObj.hex,
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%',
+              border: (selectedColorObj.hex.toLowerCase() === '#000000' || selectedColorObj.hex.toLowerCase() === '#000') 
+                ? '1px solid #ffffff40' 
+                : '1px solid transparent'
+            }} 
+          />
         )}
         <span className="color-select-arrow">▼</span>
       </div>
@@ -30,8 +41,20 @@ const CustomColorSelect = ({ value, onChange, options }) => {
               key={c.name} 
               onClick={() => { onChange(c.name); setOpen(false); }} 
               className="color-select-option"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}
             >
-              <span className="color-select-option-name" style={{ color: c.hex, fontWeight: '700' }}>{c.name}</span>
+              <span className="color-select-option-name" style={{ color: '#fff', fontWeight: '500' }}>{c.name}</span>
+              <div 
+                style={{ 
+                  backgroundColor: c.hex,
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%',
+                  border: (c.hex.toLowerCase() === '#000000' || c.hex.toLowerCase() === '#000') 
+                    ? '1px solid #ffffff40' 
+                    : '1px solid transparent'
+                }} 
+              />
             </div>
           ))}
         </div>

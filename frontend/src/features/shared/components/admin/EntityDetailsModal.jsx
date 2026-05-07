@@ -21,7 +21,7 @@ const EntityDetailsModal = ({ isOpen, onClose, entityData, title = "Detalles" })
   );
 
   return (
-    <div className="details-modal-backdrop" onClick={onClose}>
+    <div className="details-modal-backdrop">
       <div className="details-modal-container" onClick={(e) => e.stopPropagation()}>
         <h2 className="details-modal-title">
           {title}

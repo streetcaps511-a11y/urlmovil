@@ -59,7 +59,7 @@ const UserFormFields = ({
 
       return (
         <div className="form-field">
-          <label className={`form-label ${isReadOnly ? 'readonly-field' : ''}`}>{label}: {!isReadOnly && <span className="required">*</span>}</label>
+          <label className={`form-label ${isReadOnly ? 'readonly-field' : ''}`}>{label}:{!isReadOnly && <span className="required">*</span>}</label>
           <select
             name={fieldName}
             disabled={isReadOnly || (fieldName === 'rol' && isEditingAdmin)}
@@ -79,7 +79,7 @@ const UserFormFields = ({
 
     return (
       <div className="form-field">
-        <label className={`form-label ${isReadOnly ? 'readonly-field' : ''}`}>{label}: {!isReadOnly && <span className="required">*</span>}</label>
+        <label className={`form-label ${isReadOnly ? 'readonly-field' : ''}`}>{label}:{!isReadOnly && <span className="required">*</span>}</label>
         <input
           type={type}
           name={fieldName}
@@ -112,8 +112,7 @@ const UserFormFields = ({
               { value: 'Cédula de Extranjería', label: 'Cédula de extranjería' },
               { value: 'Permiso Especial (PEP)', label: 'Permiso especial (PEP)' },
               { value: 'Permiso Temporal (PPT)', label: 'Permiso temporal (PPT)' },
-              { value: 'Pasaporte', label: 'Pasaporte' },
-              { value: 'NIT', label: 'NIT' }
+              { value: 'Pasaporte', label: 'Pasaporte' }
             ])}
           </div>
           <div className="col">
@@ -129,7 +128,7 @@ const UserFormFields = ({
 
         <div className="form-row">
           <div className="col">
-            {renderField('Email', 'email', 'email')}
+            {renderField('Email', 'email', 'text')}
           </div>
         </div>
 

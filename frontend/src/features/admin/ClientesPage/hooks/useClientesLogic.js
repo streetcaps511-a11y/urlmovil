@@ -230,7 +230,12 @@ export const useClientesLogic = () => {
       loadCitiesByDepartment(value);
       setFormData(prev => ({ ...prev, department: value, city: '' }));
     } else if (field === 'documentNumber') {
-      const val = value.replace(/\D/g, '').slice(0, 12);
+      // Permitir letras y símbolos si es NIT o Pasaporte
+      const isAlphanumeric = formData.documentType === 'NIT' || formData.documentType === 'Pasaporte';
+      // Limitar a 10 caracteres si es NIT, 20 si es Pasaporte, 15 otros
+      const limit = formData.documentType === 'NIT' ? 10 : (formData.documentType === 'Pasaporte' ? 20 : 15);
+      
+      const val = isAlphanumeric ? value.slice(0, limit) : value.replace(/\D/g, '').slice(0, limit);
       setFormData(prev => ({ ...prev, [field]: val }));
     } else if (field === 'phone') {
       const val = value.replace(/\D/g, '').slice(0, 10);
@@ -243,10 +248,58 @@ export const useClientesLogic = () => {
   const validateForm = () => {
     const newErrors = {};
     if (!formData.documentType) newErrors.documentType = 'Tipo de documento es obligatorio';
-    if (!formData.documentNumber?.trim()) newErrors.documentNumber = 'Número de documento es obligatorio';
-    if (!formData.fullName?.trim()) newErrors.fullName = 'Nombre completo es obligatorio';
-    if (!formData.email?.trim()) newErrors.email = 'Email es obligatorio';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Email inválido';
+    if (!formData.documentNumber?.trim()) {
+      newErrors.documentNumber = 'Número de documento es obligatorio';
+    } else if (formData.documentType === 'NIT') {
+      const nit = formData.documentNumber.trim();
+      const hyphenCount = (nit.match(/-/g) || []).length;
+      
+      if (hyphenCount === 0) {
+        newErrors.documentNumber = 'Falta el guion (-) en el NIT';
+      } else if (hyphenCount > 1) {
+        newErrors.documentNumber = 'El NIT solo debe tener un guion (-)';
+      } else if (nit.length !== 10) {
+        newErrors.documentNumber = 'El NIT debe tener exactamente 10 caracteres (ej: 12345678-9)';
+      } else {
+        // Verificar que sean números y un guion
+        const regex = /^[0-9]+-[0-9]$/;
+        if (!regex.test(nit)) {
+          newErrors.documentNumber = 'Formato de NIT inválido. Verifica bien (ej: 12345678-9)';
+        }
+      }
+    } else if (formData.documentNumber.trim().length < 6 || formData.documentNumber.trim().length > 15) {
+      newErrors.documentNumber = 'El documento debe tener entre 6 y 15 caracteres';
+    }
+    
+    if (!formData.fullName?.trim()) {
+      newErrors.fullName = 'Nombre completo es obligatorio';
+    } else if (formData.fullName.trim().length < 3) {
+      newErrors.fullName = 'El nombre debe tener al menos 3 caracteres';
+    }
+
+    if (!formData.email?.trim()) {
+      newErrors.email = 'Email es obligatorio';
+    } else {
+      const email = formData.email.trim();
+      const atIndex = email.indexOf('@');
+      const dotIndex = email.lastIndexOf('.');
+      
+      if (atIndex === -1) {
+        newErrors.email = 'Falta el símbolo arroba (@)';
+      } else if (atIndex === 0 || atIndex === email.length - 1) {
+        newErrors.email = 'El arroba (@) está mal posicionado';
+      } else if (email.split('@').length > 2) {
+        newErrors.email = 'No puede haber más de un arroba (@)';
+      } else if (email.includes('..')) {
+        newErrors.email = 'No puede haber dos puntos consecutivos (..)';
+      } else if (email.toLowerCase().endsWith('.com.com')) {
+        newErrors.email = 'El dominio no puede ser .com.com';
+      } else if (dotIndex === -1 || dotIndex < atIndex + 2) {
+        newErrors.email = 'Falta el punto (.) en el dominio después del arroba';
+      } else if (dotIndex === email.length - 1) {
+        newErrors.email = 'Falta el dominio (ej: .com)';
+      }
+    }
     if (!formData.phone?.trim()) newErrors.phone = 'Teléfono es obligatorio';
     if (!formData.department) newErrors.department = 'Departamento es obligatorio';
     if (!formData.city) newErrors.city = 'Ciudad es obligatoria';
@@ -302,7 +355,9 @@ export const useClientesLogic = () => {
         await createNewCliente(apiClienteData);
         showAlert(`Cliente ${apiClienteData.nombreCompleto} registrado correctamente ✅`);
       }
-      loadClientes(); // Refresh
+      // Quitamos el loadClientes() de aquí para que sea instantáneo. 
+      // El fetch inicial ya se encargará de sincronizar si es necesario, 
+      // pero el estado local ya está actualizado de forma optimista.
     } catch (err) {
       showAlert('Error al guardar el cliente', 'error');
       loadClientes(); // Re-sync

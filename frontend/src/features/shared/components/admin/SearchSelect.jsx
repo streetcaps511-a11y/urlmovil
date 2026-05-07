@@ -16,7 +16,8 @@ const SearchSelect = ({
   loadingText = null,
   className = "",
   error = false,
-  height = "48px"
+  height = "48px",
+  onFreeText = null
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,12 +52,17 @@ const SearchSelect = ({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
+        // Si hay texto escrito y no se seleccionó nada, avisar al padre
+        if (onFreeText && searchTerm.trim() && !selectedItem) {
+          onFreeText(searchTerm.trim());
+        }
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [searchTerm, selectedItem, onFreeText]);
 
   const filteredOptions = options.filter(option => {
     if (!searchTerm) return true;
@@ -113,16 +119,6 @@ const SearchSelect = ({
           )}
         </div>
         <div className="search-select-icons">
-          {selectedItem && (
-            <FaTimes 
-              className="icon-clear" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(null);
-                setSearchTerm('');
-              }} 
-            />
-          )}
           <FaChevronDown className={`icon-arrow ${isOpen ? 'open' : ''}`} />
         </div>
       </div>
@@ -170,7 +166,7 @@ const SearchSelect = ({
 
         .search-select-header {
           background-color: transparent; 
-          border: 1px solid rgba(255, 255, 255, 0.45); 
+          border: 1px solid #334155; 
           border-radius: 8px; 
           padding: 0 12px; 
           color: #fff; 
@@ -260,7 +256,7 @@ const SearchSelect = ({
         }
 
         .options-list {
-          max-height: 250px;
+          max-height: 350px;
           overflow-y: auto;
         }
 

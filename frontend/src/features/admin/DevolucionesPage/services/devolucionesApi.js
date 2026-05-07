@@ -45,7 +45,7 @@ export const mapDevolucionData = (d) => {
     viewingEvidencia: 1,
     motivoRechazo: d.observacion || d.MotivoRechazo || '',
     idVenta: d.idVenta || d.IdVenta || d.ventaOriginal?.id || '',
-    idLote: d.idLote || null,
+    noVenta: d.noVenta || d.NoVenta || null,
     talla: d.talla || d.Talla || 'N/A',
     cantidad: d.cantidad || d.Cantidad || 1,
     cantidadOriginal: d.cantidadOriginal || d.CantidadOriginal || d.cantidad || d.Cantidad || 1,
@@ -79,7 +79,7 @@ export const createNewDevolucion = async (devData) => {
       precioUnitario: devData.precioUnitario || 0,
       cantidad: devData.cantidad || 1,
       estado: 'Pendiente',
-      idLote: devData.idLote || null,
+      noVenta: devData.idVenta || null,
       fecha: new Date().toISOString()
     };
     const response = await createDevolucion(payload);

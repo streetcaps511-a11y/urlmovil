@@ -59,6 +59,7 @@
   margin: 0 0 15px 0;
   color: var(--gm-text);
   letter-spacing: 0.4px;
+  text-transform: uppercase;
 }
 
 .gm-hero-sub {

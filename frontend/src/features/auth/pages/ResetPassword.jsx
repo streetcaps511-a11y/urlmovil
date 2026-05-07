@@ -236,14 +236,14 @@ const ResetPassword = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="login-container-root">
       <div style={styles.overlay} />
       
-      <Link to="/" style={styles.backLink}>
+      <Link to="/" style={styles.backLink} className="back-link">
         <FaArrowLeft size={15} color="#FFC107" /> Volver a la tienda
       </Link>
-
-      <div style={styles.heroSection}>
+ 
+      <div style={styles.heroSection} className="login-hero-section">
         <img src="/logo.png" alt="GM Caps" style={styles.logoImg} />
         <h1 style={styles.bannerTitle}>Gorras Medellín Caps</h1>
         <p style={styles.bannerSubtitle}>
@@ -251,8 +251,8 @@ const ResetPassword = () => {
         </p>
       </div>
       
-      <div style={styles.formWrapper}>
-        <div style={styles.formCard}>
+      <div style={styles.formWrapper} className="login-form-wrapper">
+        <div style={styles.formCard} className="login-form-card">
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "15px" }}>
             <button
               onClick={() => navigate("/login")}
@@ -265,6 +265,7 @@ const ResetPassword = () => {
                 padding: "8px",
                 borderRadius: "50%"
               }}
+              aria-label="Volver"
             >
               <FaArrowLeft size={16} />
             </button>
@@ -274,7 +275,7 @@ const ResetPassword = () => {
           {!isSuccess ? (
             <>
               <p style={styles.formSubtitle}>Ingresa tu nueva contraseña para actualizar tu acceso</p>
-
+ 
               <form onSubmit={handleSubmit}>
                 <label style={styles.label}>Contraseña Nueva</label>
                 <div style={styles.inputWrap}>
@@ -290,7 +291,7 @@ const ResetPassword = () => {
                     {showPass ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
                   </button>
                 </div>
-
+ 
                 <label style={styles.label}>Confirmar Contraseña</label>
                 <div style={styles.inputWrap}>
                   <input
@@ -305,9 +306,9 @@ const ResetPassword = () => {
                     {showConfirmPass ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
                   </button>
                 </div>
-
+ 
                 {error && <div style={styles.error}>{error}</div>}
-
+ 
                 <button type="submit" style={styles.mainBtn} disabled={isSubmitting}>
                   {isSubmitting ? "Cambiando..." : "Actualizar Contraseña"}
                 </button>
@@ -325,6 +326,27 @@ const ResetPassword = () => {
           )}
         </div>
       </div>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInRight { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .login-container-root {
+          display: flex;
+          min-height: 100vh;
+          width: 100%;
+        }
+
+        .login-hero-section { flex: 0 0 45%; }
+        .login-form-wrapper { flex: 0 0 55%; }
+
+        @media (max-width: 900px) {
+          .login-container-root { flex-direction: column !important; overflow-y: auto !important; }
+          .login-hero-section { flex: 0 0 auto !important; padding: 60px 20px 30px 20px !important; }
+          .login-form-wrapper { flex: 0 0 auto !important; padding-right: 0 !important; padding-bottom: 50px !important; }
+          .login-form-card { max-width: 90% !important; padding: 20px 25px !important; }
+          .back-link { left: 20px !important; top: 20px !important; }
+        }
+      `}</style>
     </div>
   );
 };

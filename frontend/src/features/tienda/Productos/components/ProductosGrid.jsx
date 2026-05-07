@@ -2,69 +2,39 @@
    Pieza modular de interfaz (como Tarjetas, Modales o Botones). 
    Recibe información a través de 'props' y notifica eventos hacia arriba (a la Página principal). */
 
-import React, { useState } from 'react';
-import { FaTimes, FaFilter } from 'react-icons/fa';
+import React from 'react';
+import { FaTimes } from 'react-icons/fa';
 import ProductCard from './ProductCard';
+import PaginatedGrid from '../../shared/components/PaginatedGrid';
 import '../styles/ProductosGrid.css';
+import '../../shared/styles/Pagination.css';
 
-// Mapeo de colores a HEX para las bolitas del filtro
-const COLOR_MAP = {
-  'negro': '#000000',
-  'blanco': '#FFFFFF',
-  'rojo': '#FF0000',
-  'azul': '#2563eb',
-  'verde': '#008000',
-  'amarillo': '#FFFF00',
-  'gris': '#808080',
-  'naranja': '#FFA500',
-  'morado': '#800080',
-  'cafe': '#A52A2A',
-  'marrón': '#A52A2A',
-  'rosado': '#FFC0CB',
-  'rosa': '#FFC0CB',
-  'beige': '#F5F5DC',
-  'crema': '#FFFDD0',
-  'dorado': '#FFD700',
-  'plateado': '#C0C0C0',
-  'azul marino': '#000080',
-  'vinotinto': '#800000',
-  'khaki': '#F0E68C',
-  'oliva': '#808000',
-};
-
+/* ──────────────────────────────────────────────
+   Componente principal ProductosGrid
+   ────────────────────────────────────────────── */
 const ProductosGrid = ({ 
   filteredProducts, 
   searchTerm, 
-  setGlobalSearch, 
   initialProducts, 
   openModal, 
   safeImg, 
   getRatingFromProduct,
-  // Props de Filtros
   selectedColors = [],
   selectedSizes = [],
   selectedCategories = [],
   allAvailableFilters = { categories: [], colors: [], sizes: [] },
   toggleFilter,
-  clearFilters
+  clearFilters,
+  setGlobalSearch,
 }) => {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [expandedFilters, setExpandedFilters] = useState({ categories: true, colors: true, sizes: true });
-
-  const toggleFilterSection = (section) => {
-    setExpandedFilters(prev => ({ ...prev, [section]: !prev[section] }));
-  };
 
   return (
     <div className="gm-container">
-
-
       <div className="gm-products-page-layout">
-        
 
-
-        {/* CONTENIDO PRINCIPAL (Columna Derecha) */}
+        {/* CONTENIDO PRINCIPAL */}
         <main className="gm-products-main-content">
+
           {/* ⚡ ESTADO DE CARGA INICIAL */}
           {(!initialProducts || initialProducts.length === 0) && (
             <div className="gm-loading-container">
@@ -98,41 +68,28 @@ const ProductosGrid = ({
                   </button>
                 </div>
               ) : (
-                <div className="gm-products-grid">
-                  {filteredProducts.map((p) => (
-                    <ProductCard 
-                      key={p.id} 
-                      product={p} 
-                      openModal={openModal} 
-                      safeImg={safeImg} 
-                      getRatingFromProduct={getRatingFromProduct}
-                      badge={p.hasDiscount || p.oferta ? "Oferta" : (p.destacado || p.isFeatured ? "Destacado" : null)}
-                      badgeType={p.hasDiscount || p.oferta ? "oferta" : (p.destacado || p.isFeatured ? "destacado" : null)}
-                    />
-                  ))}
-                </div>
+                <PaginatedGrid
+                  products={filteredProducts}
+                  openModal={openModal}
+                  safeImg={safeImg}
+                  getRatingFromProduct={getRatingFromProduct}
+                  ProductCardComponent={ProductCard}
+                />
               )}
             </>
           )}
 
-          {/* Todos los productos (si no se está buscando) */}
-          {filteredProducts === null && (
-            <div className="gm-products-grid">
-              {(initialProducts || [])
-                .filter(p => (p.isActive !== false && (p.stock > 0)))
-                .map((p) => (
-                <ProductCard 
-                  key={p.id} 
-                  product={p} 
-                  openModal={openModal} 
-                  safeImg={safeImg} 
-                  getRatingFromProduct={getRatingFromProduct}
-                  badge={p.hasDiscount || p.oferta ? "Oferta" : (p.destacado || p.isFeatured ? "Destacado" : null)}
-                  badgeType={p.hasDiscount || p.oferta ? "oferta" : (p.destacado || p.isFeatured ? "destacado" : null)}
-                />
-              ))}
-            </div>
+          {/* Todos los productos (sin búsqueda activa) */}
+          {filteredProducts === null && initialProducts && initialProducts.length > 0 && (
+            <PaginatedGrid
+              products={(initialProducts).filter(p => p.isActive !== false && p.stock > 0)}
+              openModal={openModal}
+              safeImg={safeImg}
+              getRatingFromProduct={getRatingFromProduct}
+              ProductCardComponent={ProductCard}
+            />
           )}
+
         </main>
       </div>
     </div>

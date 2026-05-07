@@ -28,8 +28,7 @@ const Cliente = sequelize.define('Cliente', {
         unique: true,
         field: 'Documento',
         validate: {
-            notEmpty: { msg: 'El número de documento es requerido' },
-            isNumeric: { msg: 'El documento debe contener solo números' }
+            notEmpty: { msg: 'El número de documento es requerido' }
         }
     },
     nombreCompleto: {

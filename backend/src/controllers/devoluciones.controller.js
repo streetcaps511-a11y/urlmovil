@@ -213,7 +213,7 @@ const devolucionController = {
                 observacion: observacion || null,
                 mismoModelo: mismoModelo === true || mismoModelo === 'true' || false,
                 pedidoCompleto: pedidoCompleto === true || pedidoCompleto === 'true' || false,
-                idLote: idLote || null
+                noVenta: idVenta || null
             };
 
             // 🔍 BUSCAR INFO DEL CLIENTE
@@ -307,10 +307,10 @@ const devolucionController = {
                 await decreaseProductStock(dev, transaction);
             }
 
-            // 🔄 PROPAGAR CAMBIOS A TODO EL LOTE SI EXISTE
-            if (dev.idLote) {
+            // 🔄 PROPAGAR CAMBIOS A TODA LA VENTA SI EXISTE
+            if (dev.noVenta) {
                 const siblings = await Devolucion.findAll({ 
-                    where: { idLote: dev.idLote, id: { [Op.ne]: dev.id } },
+                    where: { noVenta: dev.noVenta, id: { [Op.ne]: dev.id } },
                     transaction 
                 });
 
@@ -331,7 +331,7 @@ const devolucionController = {
             }, { transaction });
 
             await transaction.commit();
-            res.json({ success: true, message: dev.idLote ? 'Lote actualizado correctamente' : 'Actualizado correctamente' });
+            res.json({ success: true, message: dev.noVenta ? 'Solicitud actualizada correctamente' : 'Actualizado correctamente' });
         } catch (error) {
             if (transaction) await transaction.rollback();
             res.status(500).json({ success: false, message: error.message });

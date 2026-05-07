@@ -58,8 +58,15 @@
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px; /* Reduced gap */
+  grid-template-columns: 3fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.product-form-row-2col {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
   width: 100%;
 }
 
@@ -139,11 +146,21 @@
 }
 
 .form-textarea {
-  resize: none; 
-  height: 34px; 
+  resize: none;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+
+.form-textarea.dynamic-height {
+  height: 34px;
   min-height: 34px;
-  line-height: 1.4;
-  padding-top: 6px;
+  max-height: none;
+  overflow: hidden;
+  transition: none;
 }
 
 .form-input.has-error,
@@ -302,7 +319,8 @@
 
 .switch-input:checked + .switch-slider .switch-thumb {
   left: 16px;
-  background-color: #0b1220;
+  background-color: #F5C81B; /* Mantener color amarillo cuando está activo */
+  box-shadow: 0 0 8px rgba(245, 200, 27, 0.4);
 }
 
 /* Detalle Grid (Tallas, Colores, Imagenes) */
@@ -541,11 +559,21 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Override Autofill styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #1E293B inset !important;
+    -webkit-text-fill-color: white !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
 /* Asegurar espacio para el desplegable de colores */
 .form-card.colores .form-card-list {
-  max-height: 250px;
-  overflow-y: auto;
-  padding-bottom: 100px; /* Extra space at bottom to allow dropdown to show without cutting */
+  max-height: none;
+  overflow-y: visible;
+  padding-bottom: 20px;
 }
 
 .form-card.colores .form-card-content {

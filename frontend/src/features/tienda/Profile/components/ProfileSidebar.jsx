@@ -160,7 +160,6 @@ const ProfileSidebar = ({
         </div>
 
         <div className="gm-sidebar-brand-deco">
-          <FaShoppingBag size={50} color="rgba(255,255,255,0.03)" style={{ position: 'absolute', bottom: '-10px', right: '-10px', transform: 'rotate(-15deg)' }} />
           <div className="gm-sidebar-deco-text">GM EXCLUSIVE</div>
         </div>
       </div>

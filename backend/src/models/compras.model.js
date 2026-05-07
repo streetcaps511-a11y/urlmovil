@@ -18,6 +18,11 @@ const Compra = sequelize.define('Compra', {
         allowNull: true,
         field: 'ProveedorNombreHistorico'
     },
+    numeroRecibo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'NumeroRecibo'
+    },
     fecha: {
         type: DataTypes.DATEONLY,
         allowNull: false,
@@ -45,6 +50,11 @@ const Compra = sequelize.define('Compra', {
         allowNull: false,
         defaultValue: 'Completada',
         field: 'Estado'
+    },
+    fechaRegistro: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'FechaRegistro'
     }
 }, {
     tableName: 'Compras',

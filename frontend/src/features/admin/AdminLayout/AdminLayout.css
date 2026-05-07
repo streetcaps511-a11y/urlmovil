@@ -152,13 +152,11 @@
 .al-nav-sub-items {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.4s cubic-bezier(0, 1, 0, 1);
   background: rgba(255, 255, 255, 0.03);
 }
 
 .al-nav-group.open .al-nav-sub-items {
-  max-height: 500px; /* Large enough to fit sub-items */
-  transition: max-height 0.4s cubic-bezier(1, 0, 1, 0);
+  max-height: 1000px; /* Suficientemente grande */
 }
 
 .al-nav-sub-link {

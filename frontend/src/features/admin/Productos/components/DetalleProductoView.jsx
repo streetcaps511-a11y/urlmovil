@@ -41,7 +41,7 @@ const DetalleProductoView = ({ producto }) => {
               <div className="form-row">
                 <div className="form-field">
                   <label className="form-label">Nombre:</label>
-                  <div className="form-input disabled" style={{ width: '100%' }}>{producto.nombre}</div>
+                  <div className="form-input disabled" style={{ width: '100%', height: 'auto', minHeight: '34px', display: 'flex', alignItems: 'center', padding: '6px 12px' }}>{producto.nombre}</div>
                 </div>
 
                 <div className="form-field">
@@ -52,7 +52,17 @@ const DetalleProductoView = ({ producto }) => {
 
               <div className="form-field full-width">
                 <label className="form-label">Descripción:</label>
-                <div className="form-textarea disabled" style={{ height: '40px', minHeight: '40px', display: 'flex', alignItems: 'center' }}>
+                <div 
+                  className="form-textarea disabled" 
+                  style={{ 
+                    height: 'auto', 
+                    minHeight: '80px', 
+                    display: 'block', 
+                    padding: '12px',
+                    whiteSpace: 'pre-wrap',
+                    overflowY: 'auto'
+                  }}
+                >
                   {producto.descripcion || 'Sin descripción'}
                 </div>
               </div>
@@ -129,13 +139,9 @@ const DetalleProductoView = ({ producto }) => {
                   ) : (
                     <div className="form-card-list">
                       {producto.tallasStock.map((item, index) => (
-                        <div key={index} className="form-list-row talla-row" style={{ width: '100%' }}>
-                          <div className="form-input disabled" style={{ flex: 1, height: '40px', display: 'flex', alignItems: 'center' }}>
-                            {item.talla}
-                          </div>
-                          <div className="form-input disabled" style={{ width: '100px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F5C81B', fontWeight: '800' }}>
-                            {item.cantidad} uds
-                          </div>
+                        <div key={index} className="form-list-row talla-row" style={{ width: '100%', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }}>
+                          <span style={{ flex: 1, color: '#fff', fontSize: '13px' }}>{item.talla}</span>
+                          <span style={{ width: '80px', textAlign: 'right', color: '#F5C81B', fontWeight: '800', fontSize: '13px' }}>{item.cantidad} uds</span>
                         </div>
                       ))}
                     </div>
@@ -153,20 +159,15 @@ const DetalleProductoView = ({ producto }) => {
                     <div className="no-items-placeholder">No hay colores añadidos</div>
                   ) : (
                     <div className="form-card-list">
-                      {producto.colores.map((color, index) => (
-                        <div key={index} className="form-list-row color-row" style={{ width: '100%' }}>
-                           <div className="form-input disabled" style={{ flex: 1, height: '40px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{ 
-                                width: '16px', 
-                                height: '16px', 
-                                borderRadius: '50%', 
-                                border: '1px solid rgba(255,255,255,0.2)',
-                                backgroundColor: color.toLowerCase() === 'blanco' ? '#fff' : color.toLowerCase() === 'negro' ? '#000' : color 
-                              }} />
-                              {color}
-                           </div>
-                        </div>
-                      ))}
+                      {producto.colores.map((color, index) => {
+                        const colorHex = color.toLowerCase() === 'blanco' ? '#fff' : color.toLowerCase() === 'negro' ? '#000' : color;
+                        return (
+                          <div key={index} className="form-list-row color-row" style={{ width: '100%', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: colorHex, border: '1px solid rgba(255,255,255,0.2)' }} />
+                            <span style={{ flex: 1, color: '#fff', fontSize: '13px' }}>{color}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -57,7 +57,7 @@ const UniversalModal = ({
     <div
       className="universal-modal-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose?.();
+        // Bloqueado cierre por clic afuera a petición del usuario
       }}
       style={modalOverlayStyle}
     >
@@ -156,4 +156,4 @@ const UniversalModal = ({
   );
 };
 
-export default UniversalModal;
+export default UniversalModal;

@@ -465,25 +465,25 @@ export const useDevolucionesLogic = () => {
       return matchesSearch && matchesStatus;
     });
 
-    // 2. Agrupar los resultados filtrados por idLote
+    // 2. Agrupar los resultados filtrados por Venta/Orden (Pedido Completo)
     const grouped = [];
     const lotMap = new Map();
 
     initialFiltered.forEach(d => {
-      if (d.idLote) {
-        if (!lotMap.has(d.idLote)) {
-          lotMap.set(d.idLote, {
+      if (d.noVenta) {
+        if (!lotMap.has(d.noVenta)) {
+          lotMap.set(d.noVenta, {
             ...d,
             isLot: true,
-            id: `LOTE-${d.idLote.substring(d.idLote.length - 8).toUpperCase()}`,
-            idLoteReal: d.idLote,
+            id: `ORD-${String(d.noVenta).toUpperCase()}`,
+            noVentaReal: d.noVenta,
             items: [d],
-            productoOriginal: `📦 PEDIDO COMPLETO: ${d.idVenta}`,
+            productoOriginal: `📦 ORDEN COMPLETA: ${d.noVenta}`,
             precio: parseFloat(d.precio || 0)
           });
-          grouped.push(lotMap.get(d.idLote));
+          grouped.push(lotMap.get(d.noVenta));
         } else {
-          const lot = lotMap.get(d.idLote);
+          const lot = lotMap.get(d.noVenta);
           lot.items.push(d);
           lot.precio += parseFloat(d.precio || 0);
         }

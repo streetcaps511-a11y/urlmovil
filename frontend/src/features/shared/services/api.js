@@ -11,8 +11,8 @@ import axios from 'axios';
 const getDynamicBaseURL = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   
-  // 127.0.0.1 es la dirección física de tu computadora, la más segura para Windows
-  return 'http://127.0.0.1:3000';
+  // 'localhost' es más compatible con Windows y CORS en la mayoría de los casos
+  return 'http://localhost:3000';
 };
 
 export const API_BASE_URL = getDynamicBaseURL();

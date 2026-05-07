@@ -41,6 +41,7 @@ const Cart = () => {
     selectedPaymentMethod,
     deliveryType,
     deliveryAddress,
+    deliveryPhone,
     receiptFile,
     selectedDetailProduct,
     showFinalMessage,
@@ -50,6 +51,7 @@ const Cart = () => {
     setSelectedPaymentMethod,
     setDeliveryType,
     setDeliveryAddress,
+    setDeliveryPhone,
     setReceiptFile,
     setCenterAlert,
     handleRemoveFromCart,
@@ -70,6 +72,7 @@ const Cart = () => {
     cancelCheckout,
     closeInvoice,
     closeFinalMessage,
+    showErrors,
     getShippingText
   } = useCartPage();
 
@@ -78,6 +81,26 @@ const Cart = () => {
   const itemsPerPage = 3;
   const totalPages = Math.ceil(cartItems.length / itemsPerPage);
   const currentItems = cartItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Estado LOCAL para mostrar el input de cantidad de forma independiente
+  // Permite borrar hasta dejar vacío sin que CartContext lo fuerce a 1
+  const [quantityDisplays, setQuantityDisplays] = React.useState({});
+
+  // Sincronizar el display cuando cambia el carrito externamente (ej: botones + / -)
+  React.useEffect(() => {
+    const newDisplays = {};
+    cartItems.forEach(item => {
+      const key = `${item.id}_${item.talla}`;
+      // Solo sincronizar si el usuario NO está editando ese campo
+      if (quantityDisplays[key] === undefined || quantityDisplays[key] === String(item.quantity)) {
+        newDisplays[key] = item.quantity === 0 ? '' : String(item.quantity);
+      } else {
+        newDisplays[key] = quantityDisplays[key];
+      }
+    });
+    setQuantityDisplays(newDisplays);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems]);
 
   // Asegurar que si borramos el último item de una página, regresemos a la anterior
   React.useEffect(() => {
@@ -163,7 +186,7 @@ const Cart = () => {
 
   // Renderizado: Carrito con productos
   return (
-    <div className="page-container" style={{ minHeight: '100vh', position: 'relative', backgroundColor: '#0f172a' }}>
+    <div className="page-container" style={{ minHeight: '100vh', position: 'relative', backgroundColor: '#030712' }}>
       <CartHero />
       
       <CustomConfirm 
@@ -210,12 +233,15 @@ const Cart = () => {
         setDeliveryType={setDeliveryType}
         address={deliveryAddress}
         setAddress={setDeliveryAddress}
+        phone={deliveryPhone}
+        setPhone={setDeliveryPhone}
         receiptFile={receiptFile}
         setReceiptFile={setReceiptFile}
         isProcessing={isProcessing}
         cartItems={cartItems}
         getProductName={getProductName}
         getProductPrice={getProductPrice}
+        user={user}
       />
       
       {showInvoice && invoiceData && (
@@ -285,19 +311,24 @@ const Cart = () => {
                 const precio = getProductPrice(item);
                 const quantity = item.quantity || 1;
                 const productName = getProductName(item);
+                const isQtyZero = !parseInt(item.quantity) || parseInt(item.quantity) <= 0;
                 
                 return (
                     <div 
                       key={`${index}-${item.id}`} 
                       style={{ 
-                        backgroundColor: 'transparent', 
-                        padding: '15px', 
-                        borderRadius: '12px', 
+                        backgroundColor: 'rgba(255,255,255,0.02)', 
+                        padding: '18px', 
+                        borderRadius: '16px', 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '15px', 
-                        marginBottom: '15px',
-                        border: '1px solid rgba(255,193,7,0.2)'
+                        gap: '20px', 
+                        marginBottom: '20px',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                        border: isQtyZero && showErrors ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.06)',
+                        transition: 'all 0.3s ease',
+                        position: 'relative',
+                        overflow: 'hidden'
                       }}
                     >
                     {/* Imagen */}
@@ -305,12 +336,13 @@ const Cart = () => {
                       src={getImageUrl(item)} 
                       alt={productName} 
                       style={{ 
-                        width: '65px', 
-                        height: '65px', 
-                        borderRadius: '10px', 
+                        width: '85px', 
+                        height: '85px', 
+                        borderRadius: '12px', 
                         objectFit: 'cover', 
                         cursor: 'pointer',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        border: '1px solid rgba(255,255,255,0.1)'
                       }} 
                       onError={handleImageError}
                       onClick={() => setSelectedDetailProduct(item)}
@@ -327,22 +359,22 @@ const Cart = () => {
                         >
                           {productName}
                         </h3>
-                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '20px' }}>
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'nowrap', overflow: 'hidden', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             {getProductCategory(item)}
                           </span>
                           {item.talla && (
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '20px' }}>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap', flexShrink: 0 }}>
                               Talla: {item.talla}
                             </span>
                           )}
                           {getStockForSize(item) === 0 && (
-                            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: '800', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '2px 8px', borderRadius: '4px', border: '1px solid #ef4444' }}>
+                            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: '800', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #ef4444', whiteSpace: 'nowrap', flexShrink: 0 }}>
                               AGOTADO
                             </span>
                           )}
                           {getStockForSize(item) > 0 && item.quantity > getStockForSize(item) && (
-                            <span style={{ fontSize: '10px', color: '#FFC107', fontWeight: '800', backgroundColor: 'rgba(255, 193, 7, 0.1)', padding: '2px 8px', borderRadius: '4px', border: '1px solid #FFC107' }}>
+                            <span style={{ fontSize: '10px', color: '#FFC107', fontWeight: '800', backgroundColor: 'rgba(255, 193, 7, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FFC107', whiteSpace: 'nowrap', flexShrink: 0 }}>
                               SOLO {getStockForSize(item)} DISP.
                             </span>
                           )}
@@ -350,26 +382,66 @@ const Cart = () => {
                       </div>
 
                       {/* Selector de cantidad - pill redondeado más delgado */}
-                      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(245,200,27,0.4)', borderRadius: '6px', padding: '1px', background: 'rgba(0,0,0,0.3)', flexShrink: 0 }}>
-                        <button 
-                          onClick={() => updateQuantity(item.id, item.talla, -1)} 
-                          style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'transparent', border: 'none', color: '#F5C81B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <FaMinus size={7} />
-                        </button>
-                        <input 
-                          type="number"
-                          value={item.quantity || 1}
-                          onChange={(e) => handleManualQuantity(item.id, item.talla, e.target.value)}
-                          style={{ width: '38px', border: 'none', background: 'transparent', color: '#fff', textAlign: 'center', fontSize: '11px', fontWeight: '600', outline: 'none' }}
-                        />
-                        <button 
-                          onClick={() => updateQuantity(item.id, item.talla, 1)} 
-                          disabled={item.quantity >= getStockForSize(item)}
-                          style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'transparent', border: 'none', color: item.quantity >= getStockForSize(item) ? '#333' : '#F5C81B', cursor: item.quantity >= getStockForSize(item) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <FaPlus size={7} />
-                        </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(245,200,27,0.4)', borderRadius: '6px', padding: '1px', background: 'rgba(0,0,0,0.3)', flexShrink: 0 }}>
+                          <button 
+                            onClick={() => {
+                              if ((item.quantity || 0) <= 0) return;
+                              const key = `${item.id}_${item.talla}`;
+                              const newQty = Math.max(0, (item.quantity || 0) - 1);
+                              updateQuantity(item.id, item.talla, -1);
+                              setQuantityDisplays(prev => ({ ...prev, [key]: String(newQty) }));
+                            }} 
+                            disabled={(item.quantity || 0) <= 0}
+                            style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'transparent', border: 'none', color: (item.quantity || 0) <= 0 ? '#444' : '#F5C81B', cursor: (item.quantity || 0) <= 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <FaMinus size={7} />
+                          </button>
+                          <input 
+                            type="number"
+                            value={quantityDisplays[`${item.id}_${item.talla}`] ?? (item.quantity === 0 ? '' : item.quantity)}
+                            onChange={(e) => {
+                              const key = `${item.id}_${item.talla}`;
+                              const raw = e.target.value;
+                              // Actualizar solo el display local, sin tocar el carrito todavía
+                              setQuantityDisplays(prev => ({ ...prev, [key]: raw }));
+                            }}
+                            onBlur={(e) => {
+                              const key = `${item.id}_${item.talla}`;
+                              const parsed = parseInt(e.target.value);
+                              const finalQty = isNaN(parsed) ? 0 : Math.max(0, parsed);
+                              // Ahora sí actualizamos el carrito
+                              handleManualQuantity(item.id, item.talla, String(finalQty));
+                              setQuantityDisplays(prev => ({ ...prev, [key]: finalQty === 0 ? '' : String(finalQty) }));
+                            }}
+                            style={{ width: '38px', border: 'none', background: 'transparent', color: '#fff', textAlign: 'center', fontSize: '11px', fontWeight: '600', outline: 'none' }}
+                          />
+                          <button 
+                            onClick={() => {
+                              const key = `${item.id}_${item.talla}`;
+                              const newQty = (item.quantity || 0) + 1;
+                              updateQuantity(item.id, item.talla, 1);
+                              setQuantityDisplays(prev => ({ ...prev, [key]: String(Math.min(newQty, getStockForSize(item))) }));
+                            }} 
+                            disabled={item.quantity >= getStockForSize(item)}
+                            style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'transparent', border: 'none', color: item.quantity >= getStockForSize(item) ? '#333' : '#F5C81B', cursor: item.quantity >= getStockForSize(item) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <FaPlus size={7} />
+                          </button>
+                        </div>
+                        {/* 🔥 STOCK DISPONIBLE (Solo si es bajo o se alcanza) */}
+                        {item.quantity >= getStockForSize(item) && (
+                          <span style={{ fontSize: '9px', color: '#ef4444', fontWeight: '600' }}>
+                            Hay {getStockForSize(item)} disp.
+                          </span>
+                        )}
+
+                        {/* ⚠️ ERROR DE CANTIDAD INLINE */}
+                        {isQtyZero && showErrors && (
+                          <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: 'bold', marginTop: '2px', textAlign: 'center' }}>
+                            ⚠️ Selecciona cantidad
+                          </span>
+                        )}
                       </div>
 
                       {/* Precio */}

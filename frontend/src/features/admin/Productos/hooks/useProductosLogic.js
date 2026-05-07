@@ -264,7 +264,7 @@ export const useProductosLogic = () => {
     endIndex: Math.min(currentPage * itemsPerPage, filteredProductos.length),
     handleFilterSelect: (c) => { setCategoriaFiltro(c); setCurrentPage(1); },
     handleStatusSelect: (s) => { setFilterStatus(s); setCurrentPage(1); },
-    agregarTalla: () => setTallasStock(prev => [{ talla: "", cantidad: 0 }, ...prev]),
+    agregarTalla: () => setTallasStock(prev => [...prev, { talla: "", cantidad: 0 }]),
     eliminarTalla: (idx) => setTallasStock(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : [{ talla: "", cantidad: 0 }]),
     handleTallaChange: (idx, val) => { 
       const exists = tallasStock.some((item, i) => i !== idx && item.talla === val);
@@ -303,10 +303,10 @@ export const useProductosLogic = () => {
       }
       setTallasStock(n); 
     },
-    agregarUrlImagen: () => urlsImagenes.length < 4 && setUrlsImagenes(prev => ['', ...prev]),
+    agregarUrlImagen: () => urlsImagenes.length < 4 && setUrlsImagenes(prev => [...prev, '']),
     eliminarUrlImagen: (idx) => urlsImagenes.length > 1 && setUrlsImagenes(prev => prev.filter((_, i) => i !== idx)),
     actualizarUrlImagen: (idx, val) => { const n = [...urlsImagenes]; n[idx] = val; setUrlsImagenes(n); },
-    agregarColor: () => coloresProducto.length < 2 && setColoresProducto(prev => ['', ...prev]),
+    agregarColor: () => coloresProducto.length < 2 && setColoresProducto(prev => [...prev, '']),
     eliminarColor: (idx) => coloresProducto.length > 1 && setColoresProducto(prev => prev.filter((_, i) => i !== idx)),
     actualizarColor: (idx, val) => { const n = [...coloresProducto]; n[idx] = val; setColoresProducto(n); },
     mostrarLista: () => { setModoVista("lista"); setErrors({}); },

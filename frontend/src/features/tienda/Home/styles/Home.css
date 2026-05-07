@@ -52,7 +52,7 @@
 .gm-home-title {
   margin: 0;
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: -0.5px;
   color: var(--gm-text);
   white-space: nowrap;
@@ -199,7 +199,7 @@
 .gm-home-title {
   margin: 0;
   font-size: 1.35rem;
-  font-weight: 500;
+  font-weight: 900;
   letter-spacing: -0.5px;
   color: var(--gm-text);
   white-space: nowrap;
@@ -873,7 +873,7 @@
   -webkit-line-clamp: 1;
   line-clamp: 1;
   -webkit-box-orient: vertical;
-  font-weight: 800; /* Negrita */
+  font-weight: 900; /* Negrita */
   line-height: 1.2;
   letter-spacing: 0.2px;
   text-transform: uppercase;

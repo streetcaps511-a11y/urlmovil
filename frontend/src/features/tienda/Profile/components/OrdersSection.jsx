@@ -179,32 +179,49 @@ const OrdersSection = ({
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const invoiceNumber = selectedOrder.id.replace('PED-', '');
     const date = selectedOrder.date;
-    const items = (selectedOrder.items || []).map(i => ({
-      name: i.name,
-      quantity: i.qty,
-      price: typeof i.price === 'string' ? parseInt(i.price.replace(/[^0-9]/g, '')) : i.price
-    }));
-    const total = typeof selectedOrder.total === 'string' ? parseInt(selectedOrder.total.replace(/[^0-9]/g, '')) : selectedOrder.total;
-    const shipping = 'Consultar con el vendedor';
+    
+    // Group items by name to avoid repeating name for multiple sizes
+    const groupedItems = (selectedOrder.items || []).reduce((acc, i) => {
+      const price = typeof i.price === 'string' ? parseInt(i.price.replace(/[^0-9]/g, '')) : i.price;
+      const existing = acc.find(item => item.name === i.name);
+      if (existing) {
+        existing.quantity = (parseInt(existing.quantity) || 0) + (parseInt(i.qty) || 0);
+        // We assume items might have sizes in a separate property if available
+      } else {
+        acc.push({
+          name: i.name,
+          quantity: parseInt(i.qty) || 0,
+          price: price
+        });
+      }
+      return acc;
+    }, []);
 
-    // doc.setFillColor(15, 23, 42);
-    // doc.rect(0, 0, 210, 297, 'F');
+    const total = typeof selectedOrder.total === 'string' ? parseInt(selectedOrder.total.replace(/[^0-9]/g, '')) : selectedOrder.total;
+    const shippingNote = 'Consultar con el vendedor';
+
+
+
+    // Header - Left aligned Name, Right aligned Number
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(24);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text("GORRAS MEDELLÍN", 105, 25, { align: 'center' });
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(10);
+    doc.text("Gorras medellín", 20, 25);
+    
+    doc.setFontSize(14);
+    doc.text(`NUMERO PED: ${invoiceNumber}`, 190, 25, { align: 'right' });
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`No. INV-${invoiceNumber}`, 105, 33, { align: 'center' });
-    doc.text(`Fecha: ${date}`, 105, 38, { align: 'center' });
+    doc.text(`Fecha: ${date}`, 190, 31, { align: 'right' });
 
     const customerDocument = formData?.documentNumber || user?.Documento || user?.numeroDocumento || user?.numero_documento || 'N/A';
 
+    // Customer Data (Left)
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text("DATOS DEL CLIENTE:", 20, 55);
+    doc.text("Datos del cliente:", 20, 50);
     
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(10);
@@ -217,56 +234,75 @@ const OrdersSection = ({
       doc.text(String(value), x + labelWidth, y);
     };
 
-    drawLine("Nombre: ", customerName, 20, 62);
-    drawLine("Documento: ", customerDocument, 20, 67);
-    drawLine("Email: ", customerEmail, 20, 72);
-    drawLine("Teléfono: ", customerPhone, 20, 77);
-    drawLine("Dirección: ", customerAddress, 20, 82);
-    drawLine("Método de Pago: ", selectedOrder.paymentMethod || 'N/A', 20, 87);
-    const tableTop = 103;
-    const boxHeight = (items.length * 7) + 15;
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.5);
-    doc.rect(15, tableTop, 180, boxHeight);
-    let yPosHead = 110;
+    drawLine("Nombre: ", customerName, 20, 57);
+    drawLine("Documento: ", customerDocument, 20, 62);
+    drawLine("Email: ", customerEmail, 20, 67);
+    drawLine("Teléfono: ", customerPhone, 20, 72);
+    drawLine("Dirección: ", customerAddress, 20, 77);
+    drawLine("Método de Pago: ", selectedOrder.paymentMethod || 'N/A', 20, 82);
+    drawLine("Envío: ", shippingNote, 20, 87);
+
+    // TOTAL FRONT OF CUSTOMER DATA (Right side)
     doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Total del pedido:", 190, 70, { align: 'right' });
+    doc.setFontSize(22);
+    doc.setTextColor(0, 0, 0); // Negro solicitado
+    doc.text(`$${total.toLocaleString()}`, 190, 82, { align: 'right' });
+
+    // Table Header - Black background
+    const tableTop = 100;
+    doc.setFillColor(0, 0, 0); 
+    doc.rect(15, tableTop, 180, 8, 'F');
+    
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text("Producto", 20, yPosHead);
-    doc.text("Cant.", 90, yPosHead);
-    doc.text("Precio", 110, yPosHead);
-    doc.text("Total", 140, yPosHead);
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.1);
-    doc.line(15, 113, 195, 113);
-    let yPosItems = 120;
-    items.forEach(item => {
-      doc.setTextColor(0, 0, 0);
+    doc.text("Producto", 20, tableTop + 5.5);
+    doc.text("Talla", 90, tableTop + 5.5);
+    doc.text("Cantidad", 115, tableTop + 5.5);
+    doc.text("Precio", 145, tableTop + 5.5);
+    doc.text("Total", 175, tableTop + 5.5);
+
+    // Table Rows
+    let yPosItems = tableTop + 14;
+    doc.setTextColor(0, 0, 0);
+    (selectedOrder.items || []).forEach(item => {
+      if (yPosItems > 260) {
+        doc.addPage();
+        yPosItems = 20;
+      }
+      
+      const price = typeof item.price === 'string' ? parseInt(item.price.replace(/[^0-9]/g, '')) : item.price;
+      const qty = parseInt(item.qty) || 0;
+      
       doc.setFont('helvetica', 'normal');
-      doc.text(item.name.length > 30 ? item.name.substring(0, 30) + "..." : item.name, 20, yPosItems);
-      doc.text(String(item.quantity), 90, yPosItems);
-      doc.text(`$${item.price.toLocaleString()}`, 110, yPosItems);
-      doc.text(`$${(item.price * item.quantity).toLocaleString()}`, 140, yPosItems);
+      doc.setFontSize(9);
+      doc.text(item.name.length > 35 ? item.name.substring(0, 35) + "..." : item.name, 20, yPosItems);
+      doc.text(item.size || 'N/A', 90, yPosItems);
+      doc.text(String(qty), 115, yPosItems);
+      doc.text(`$${price.toLocaleString()}`, 145, yPosItems);
+      doc.text(`$${(price * qty).toLocaleString()}`, 175, yPosItems);
       yPosItems += 7;
     });
-    let yPosTotals = yPosItems + 15;
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text("Envío:", 120, yPosTotals);
-    doc.text(shipping || 'N/A', 150, yPosTotals);
-    yPosTotals += 10;
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text("TOTAL:", 120, yPosTotals);
-    doc.setFontSize(16);
-    doc.text(`$${total.toLocaleString()}`, 150, yPosTotals);
+
+    // FOOTER CORPORATIVO
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, pageHeight - 25, 195, pageHeight - 25);
+    
     doc.setTextColor(100, 100, 100);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
-    doc.text("Gracias por elegir Gorras Medellín. Comprobante histórico.", 20, yPosTotals + 20);
-    doc.save(`Comprobante_GMCAPS_${invoiceNumber}.pdf`);
+    doc.setFont('helvetica', 'bold');
+    doc.text("GORRAS MEDELLÍN - Tu estilo, nuestra pasión", 105, pageHeight - 18, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Alfonzo López - Medellin | WhatsApp: +57 300 6158180", 105, pageHeight - 13, { align: 'center' });
+    doc.text("Email: duvann1991@gmail.com | Instagram: @gorrasmedellin", 105, pageHeight - 8, { align: 'center' });
+
+    doc.save(`Pedido_GMCAPS_${invoiceNumber}.pdf`);
   };
 
   return (
@@ -417,7 +453,9 @@ const OrdersSection = ({
                 </div>
 
                 <div className="gm-item-action-price-group" style={{ display: 'flex', alignItems: 'center', gap: '25px', paddingRight: '5px' }}>
-                  <span className="gm-item-price" style={{ fontSize: '1.2rem', fontWeight: '800', color: '#4ADE80', minWidth: '90px', textAlign: 'right', fontFamily: '"Outfit", sans-serif' }}>{i.price}</span>
+                  <span className="gm-item-price" style={{ fontSize: '1.2rem', fontWeight: '800', color: '#4ADE80', minWidth: '90px', textAlign: 'right', fontFamily: '"Outfit", sans-serif' }}>
+                    ${( (typeof i.price === 'string' ? parseInt(i.price.replace(/[^0-9]/g, '')) : i.price) * (parseInt(i.qty) || 1) ).toLocaleString('es-CO')}
+                  </span>
                   {(selectedOrder.status === "Aprobado" || selectedOrder.status === "Completada") && (
                     !allReturns.some(r => 
                       Number(r.rawOrderId) === Number(selectedOrder.id.replace('PED-', '')) && 
