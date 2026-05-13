@@ -435,7 +435,8 @@ export const useDevolucionesLogic = () => {
     try {
       // Normalizar status para enviar solo el nombre string
       const statusName = typeof statusObj === 'object' ? (statusObj.nombre || statusObj.Nombre) : statusObj;
-      const devId = dev.numDevolucion || String(dev.id).replace('DEV-', '');
+      const devId = dev.id ?? (dev.noDevolucion ? (parseInt(dev.noDevolucion) - 10000).toString() : String(dev.numDevolucion).replace('DEV-', ''));
+
 
       await updateExistingDevolucion(devId, { 
         Estado: statusName, 

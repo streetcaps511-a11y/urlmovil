@@ -312,8 +312,8 @@ const ventaController = {
                 comprobante: comprobanteUrl
             }, { transaction });
 
-            // 🔥 ASIGNAR NO. VENTA AL REGISTRO RECIÉN CREADO
-            await nuevaVentaObj.update({ noVenta: String(nuevaVentaObj.id) }, { transaction });
+            // 🔥 ASIGNAR NO. VENTA AL REGISTRO RECIÉN CREADO (Offset 10000)
+            await nuevaVentaObj.update({ noVenta: String(10000 + nuevaVentaObj.id) }, { transaction });
 
             for (const d of detallesData) {
                 // 1. Crear el detalle de la venta con el NoVenta vinculado

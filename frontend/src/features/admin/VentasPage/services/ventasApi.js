@@ -127,7 +127,11 @@ export const mapBackendToFrontend = (v) => {
 
     return {
       id: v.id || v.IdVenta || Math.random(),
-      noVenta: v.NoVenta || v.noVenta || v.no_venta || v.IdVenta || v.id,
+      noVenta: (() => {
+        const raw = v.noVenta || v.NoVenta || v.no_venta || v.id || v.IdVenta;
+        const num = parseInt(raw);
+        return (!isNaN(num) && num < 10000) ? String(10000 + num) : String(raw);
+      })(),
       cliente: getClienteInfo(),
       idCliente: v.idCliente || v.IdCliente,
       fecha:

@@ -440,7 +440,7 @@ export const useVentasLogic = (initialAvailableProducts = [], initialAvailableCu
     const term = searchTerm.toLowerCase().trim();
     return ventas.filter(v => {
       const clienteName = typeof v.cliente === 'object' ? v.cliente?.nombre : (v.cliente || "");
-      const search = (clienteName + v.id).toLowerCase().includes(term);
+      const search = (clienteName + v.id + (v.noVenta || "")).toLowerCase().includes(term);
       const status = filterStatus === 'Todos' || v.estado === filterStatus;
       return search && status;
     });

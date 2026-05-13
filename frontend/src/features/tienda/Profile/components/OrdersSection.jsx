@@ -563,10 +563,11 @@ const OrdersSection = ({
                     </span>
                   </div>
                   {(String(selectedOrder.status).toUpperCase() === "APROBADO" || String(selectedOrder.status).toUpperCase() === "COMPLETADA" || String(selectedOrder.status).toUpperCase() === "ENTREGADO" || selectedOrder.status === "Entregado") && (selectedOrder.statusenvio === 'Finalizado' || selectedOrder.statusenvio === 'Entregado' || selectedOrder.status === 'Entregado') && (
-                    !allReturns.some(r => 
-                      Number(r.rawOrderId) === Number(selectedOrder.id.replace('PED-', '')) && 
-                      Number(r.productId) === Number(i.id)
-                    )
+                    !allReturns.some(r => {
+                      const selId = Number(selectedOrder.id.replace('PED-', ''));
+                      const normalizedSelId = selId > 10000 ? selId - 10000 : selId;
+                      return Number(r.rawOrderId) === normalizedSelId && Number(r.productId) === Number(i.id);
+                    })
                   ) && (
                     <button 
                       onClick={() => { handleReturnClick(i, selectedOrder); setActiveTab('returns'); }} 

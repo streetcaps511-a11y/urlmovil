@@ -37,10 +37,11 @@ export const mapDevolucionData = (d) => {
     d.Estado ||
     "Pendiente";
 
+  const displayNoDevolucion = d.noDevolucion || (d.id ? (parseInt(d.id) + 10000).toString() : d.IdDevolucion);
   return {
     id: d.id || d.IdDevolucion || "",
-    numDevolucion: d.noDevolucion || d.id || d.IdDevolucion || "",
-    noDevolucion: d.noDevolucion || d.id || d.IdDevolucion || "",
+    numDevolucion: displayNoDevolucion,
+    noDevolucion: displayNoDevolucion,
     noVenta:
       d.NoVenta ||
       d.noVenta ||

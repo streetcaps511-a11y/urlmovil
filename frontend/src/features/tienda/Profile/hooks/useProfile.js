@@ -343,7 +343,10 @@ export const useProfile = () => {
         try {
           const commonData = {
             idCliente: authUser.idCliente || authUser.IdCliente || authUser.id,
-            idVenta: Number(String(selectedProduct.orderId).replace('PED-', '')),
+            idVenta: (() => {
+              const raw = Number(String(selectedProduct.orderId).replace('PED-', ''));
+              return raw > 10000 ? raw - 10000 : raw;
+            })(),
             motivo: returnFormData.reason,
             evidencia: returnFormData.evidence,
             cantidad: isBulkReturn ? undefined : Number(returnFormData.cantidad || 1)
@@ -555,7 +558,7 @@ export const useProfile = () => {
     return orders.map(o => {
       const status = normalizeStatus(o);
       return {
-        id: `PED-${o.id}`,
+        id: `PED-${10000 + o.id}`,
         date: new Date(o.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }),
         total: `$${Number(o.total || 0).toLocaleString('es-CO')}`,
         status,
@@ -616,7 +619,7 @@ export const useProfile = () => {
 
       return {
         id: `DEV-${r.noDevolucion || (10000 + r.id)}`,
-        orderId: `PED-${r.idVenta}`,
+        orderId: `PED-${10000 + r.idVenta}`,
         rawOrderId: r.idVenta,
         productId: r.idProducto,
         size: r.talla || originalItem?.talla || "U",

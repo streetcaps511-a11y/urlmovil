@@ -117,7 +117,8 @@ export const deleteAccountPermanently = async () => {
 
 export const markOrderAsReceived = async (orderId) => {
   try {
-    const id = String(orderId).replace('PED-', '');
+    const rawId = String(orderId).replace('PED-', '');
+    const id = parseInt(rawId) > 10000 ? parseInt(rawId) - 10000 : rawId;
     const response = await api.patch(`/api/ventas/${id}/marcar-recibido`);
     return response.data;
   } catch (error) {
