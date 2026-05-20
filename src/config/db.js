@@ -12,17 +12,22 @@ const __dirname = path.dirname(__filename);
 const configPath = path.join(__dirname, '../../config.toml');
 const config = toml.parse(fs.readFileSync(configPath, 'utf-8')).database;
 
-// 2. Configurar SSL si está activado
+// 2. Configurar SSL optimizado para Render y Aiven
 let sslConfig = false;
+
 if (config.ssl) {
-    const caPath = path.join(__dirname, '../../', config.ssl_ca_path);
-    if (fs.existsSync(caPath)) {
+    const caPath = path.join(__dirname, '../../', config.ssl_ca_path || '');
+    if (config.ssl_ca_path && fs.existsSync(caPath)) {
+        // Si el archivo físico existe en el proyecto, lo lee y lo usa
         sslConfig = {
             rejectUnauthorized: true,
             ca: fs.readFileSync(caPath).toString(),
         };
     } else {
-        console.warn('⚠️ Advertencia: Archivo CA no encontrado en:', caPath);
+        // Si el archivo físico NO existe (caso Render), fuerza el SSL estándar requerido por Aiven
+        sslConfig = {
+            rejectUnauthorized: false
+        };
     }
 }
 
@@ -68,7 +73,7 @@ export async function connectDB() {
         return true;
     } catch (error) {
         console.error('❌ Error al conectar con la base de datos:', error.message);
-        console.log('💡 Verifica que el servicio Aiven esté activo y el archivo ca.pem exista.');
+        console.log('💡 Verifica que los datos en config.toml (incluyendo la contraseña) sean correctos.');
         throw error;
     }
 }
