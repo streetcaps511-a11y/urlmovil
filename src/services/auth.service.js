@@ -110,48 +110,70 @@ const authService = {
      * @param {string} email 
      */
     async forgotPassword(email) {
-        const searchEmail = email.toLowerCase().trim();
-        let usuario = await Usuario.findOne({ where: { email: searchEmail } });
-        
-        // 🛠️ AUTO-REPARACIÓN: Si no existe en Usuarios, buscamos si existe en la tabla de Clientes
-        if (!usuario) {
-            const { Cliente, Rol } = await import('../models/index.js');
-            const cliente = await Cliente.findOne({ where: { email: searchEmail } });
+        try {
+            const searchEmail = email.toLowerCase().trim();
+            console.log(`🔍 [FORGOT PASSWORD] Buscando usuario con email: ${searchEmail}`);
             
-            if (cliente) {
-                // Si existe como cliente, le creamos su acceso automáticamente
-                let rolCliente = await Rol.findOne({ where: { nombre: 'Cliente' } });
-                usuario = await Usuario.create({
-                    nombre: cliente.nombreCompleto,
-                    email: searchEmail,
-                    clave: crypto.randomBytes(8).toString('hex'), // Clave temporal aleatoria
-                    estado: 'activo',
-                    idRol: rolCliente?.id || 2,
-                    mustChangePassword: true
-                });
+            let usuario = await Usuario.findOne({ where: { email: searchEmail } });
+            
+            // 🛠️ AUTO-REPARACIÓN: Si no existe en Usuarios, buscamos si existe en la tabla de Clientes
+            if (!usuario) {
+                console.log(`ℹ️ [FORGOT PASSWORD] Usuario no encontrado en Usuarios, buscando en Clientes...`);
+                const { Cliente, Rol } = await import('../models/index.js');
+                const cliente = await Cliente.findOne({ where: { email: searchEmail } });
+                
+                if (cliente) {
+                    console.log(`✅ [FORGOT PASSWORD] Cliente encontrado: ${cliente.nombreCompleto}, creando usuario...`);
+                    // Si existe como cliente, le creamos su acceso automáticamente
+                    let rolCliente = await Rol.findOne({ where: { nombre: 'Cliente' } });
+                    if (!rolCliente) {
+                        throw new Error('Rol Cliente no encontrado en la base de datos');
+                    }
+                    
+                    const tempPassword = crypto.randomBytes(8).toString('hex');
+                    usuario = await Usuario.create({
+                        nombre: cliente.nombreCompleto,
+                        email: searchEmail,
+                        clave: tempPassword, // Clave temporal aleatoria
+                        estado: 'activo',
+                        idRol: rolCliente.id,
+                        mustChangePassword: true
+                    });
+                    console.log(`✅ [FORGOT PASSWORD] Usuario creado automáticamente: ${usuario.id}`);
+                } else {
+                    console.log(`❌ [FORGOT PASSWORD] No existe en Usuarios ni en Clientes`);
+                }
             }
+
+            if (!usuario) {
+                throw new Error('No existe una cuenta registrada con este correo electrónico. Por favor, regístrate primero.');
+            }
+
+            // Generar token único de 20 caracteres
+            const token = crypto.randomBytes(20).toString('hex');
+            
+            // El token expira en 15 minutos
+            usuario.resetPasswordToken = token;
+            usuario.resetPasswordExpires = Date.now() + 900000; 
+            console.log(`🔑 [FORGOT PASSWORD] Token generado para ${usuario.email}, expira en 15 minutos`);
+            
+            await usuario.save();
+            console.log(`✅ [FORGOT PASSWORD] Token guardado en la base de datos`);
+
+            // Enlace para el frontend (usando variable de entorno)
+            const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const resetLink = `${baseUrl}/reset-password?token=${token}`;
+
+            // Enviar el correo electrónico
+            console.log(`📧 [FORGOT PASSWORD] Enviando correo a ${usuario.email}...`);
+            await sendForgotPasswordEmail(usuario.email, usuario.nombre, resetLink);
+            console.log(`✅ [FORGOT PASSWORD] Correo enviado exitosamente`);
+            
+            return true;
+        } catch (error) {
+            console.error(`❌ [FORGOT PASSWORD ERROR]:`, error.message);
+            throw error;
         }
-
-        if (!usuario) {
-            throw new Error('No existe una cuenta registrada con este correo electrónico. Por favor, regístrate primero.');
-        }
-
-        // Generar token único de 20 caracteres
-        const token = crypto.randomBytes(20).toString('hex');
-        
-        // El token expira en 15 minutos
-        usuario.resetPasswordToken = token;
-        usuario.resetPasswordExpires = Date.now() + 900000; 
-        await usuario.save();
-
-        // Enlace para el frontend (usando variable de entorno)
-        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const resetLink = `${baseUrl}/reset-password?token=${token}`;
-
-        // Enviar el correo electrónico
-        await sendForgotPasswordEmail(usuario.email, usuario.nombre, resetLink);
-        
-        return true;
     },
 
     /**

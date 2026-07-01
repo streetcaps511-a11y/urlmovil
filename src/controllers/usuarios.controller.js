@@ -5,7 +5,7 @@
 
 // controllers/usuarios.controller.js
 import { Op } from 'sequelize';
-import { Usuario, Rol, Cliente, sequelize } from '../models/index.js';
+import { Usuario, Rol, Cliente, Venta, sequelize } from '../models/index.js';
 
 const usuarioController = {
   getMiPerfil: async (req, res) => {
@@ -143,6 +143,22 @@ const usuarioController = {
       if (createData.rol && !createData.idRol) createData.idRol = createData.rol;
       if (createData.nombreCompleto && !createData.nombre) createData.nombre = createData.nombreCompleto;
       
+      // 🟢 MAPEO: isActive → estado
+      if (createData.isActive !== undefined && !createData.estado) {
+        createData.estado = createData.isActive === true ? 'activo' : 'inactivo';
+      }
+      
+      if (createData.email) {
+        const emailLower = createData.email.trim().toLowerCase();
+        const emailExists = await Usuario.findOne({ where: { email: emailLower } });
+        if (emailExists) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'El correo electrónico ya está registrado por otro usuario.' 
+          });
+        }
+      }
+      
       const newUser = await Usuario.create(createData);
       
       // 🛡️ SINCRONIZACIÓN: Crear perfil de cliente si el rol es 'Cliente'
@@ -152,12 +168,12 @@ const usuarioController = {
           await Cliente.findOrCreate({
               where: { email: newUser.email },
               defaults: {
-                  nombreCompleto: `${newUser.nombre} ${newUser.apellido || ''}`.trim(),
+                  nombreCompleto: newUser.nombre.trim(),
                   email: newUser.email,
                   tipoDocumento: newUser.tipoDocumento || 'Cédula de ciudadanía',
                   numeroDocumento: (newUser.numeroDocumento || '').toString(),
                   telefono: (newUser.telefono || '').toString(),
-                  isActive: newUser.estado === 'activo'
+                  isActive: true
               }
           });
       }
@@ -183,7 +199,28 @@ const usuarioController = {
       if (updateData.IdRol && !updateData.idRol) updateData.idRol = updateData.IdRol;
       if (updateData.nombreCompleto && !updateData.nombre) updateData.nombre = updateData.nombreCompleto;
       
+      // 🟢 MAPEO: isActive → estado
+      if (updateData.isActive !== undefined && !updateData.estado) {
+        updateData.estado = updateData.isActive === true ? 'activo' : 'inactivo';
+      }
+      
       console.log(`📝 [DEBUG USER UPDATE] Traduciendo y guardando ID ${req.params.id}:`, updateData);
+
+      if (updateData.email) {
+        const emailLower = updateData.email.trim().toLowerCase();
+        const emailExists = await Usuario.findOne({ 
+          where: { 
+            email: emailLower,
+            id: { [Op.ne]: req.params.id }
+          } 
+        });
+        if (emailExists) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'El correo electrónico ya está registrado por otro usuario.' 
+          });
+        }
+      }
 
       // Guardar el email anterior para la sincronización
       const existingUser = await Usuario.findByPk(req.params.id);
@@ -208,7 +245,7 @@ const usuarioController = {
           const [cliente, created] = await Cliente.findOrCreate({
               where: { email: targetEmail },
               defaults: {
-                  nombreCompleto: `${user.nombre} ${user.apellido || ''}`.trim(),
+                  nombreCompleto: user.nombre.trim(),
                   email: user.email,
                   tipoDocumento: user.tipoDocumento || 'CC',
                   numeroDocumento: String(user.numeroDocumento || '0'),
@@ -219,7 +256,7 @@ const usuarioController = {
           
           if (!created) {
               await cliente.update({
-                  nombreCompleto: `${user.nombre} ${user.apellido || ''}`.trim(),
+                  nombreCompleto: user.nombre.trim(),
                   email: user.email, // Por si cambió el email
                   tipoDocumento: user.tipoDocumento,
                   numeroDocumento: (user.numeroDocumento || '').toString(),
@@ -243,8 +280,29 @@ const usuarioController = {
       if (updateData.rol && !updateData.idRol) updateData.idRol = updateData.rol;
       if (updateData.IdRol && !updateData.idRol) updateData.idRol = updateData.IdRol;
       if (updateData.nombreCompleto && !updateData.nombre) updateData.nombre = updateData.nombreCompleto;
+      
+      // 🟢 MAPEO: isActive → estado
+      if (updateData.isActive !== undefined && !updateData.estado) {
+        updateData.estado = updateData.isActive === true ? 'activo' : 'inactivo';
+      }
 
       console.log(`📝 [DEBUG USER PATCH] Traduciendo y guardando ID ${req.params.id}:`, updateData);
+
+      if (updateData.email) {
+        const emailLower = updateData.email.trim().toLowerCase();
+        const emailExists = await Usuario.findOne({ 
+          where: { 
+            email: emailLower,
+            id: { [Op.ne]: req.params.id }
+          } 
+        });
+        if (emailExists) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'El correo electrónico ya está registrado por otro usuario.' 
+          });
+        }
+      }
 
       const existingUser = await Usuario.findByPk(req.params.id);
       const oldEmail = existingUser?.email;
@@ -392,7 +450,33 @@ const usuarioController = {
 
   deleteUsuario: async (req, res) => {
     try {
-      await Usuario.destroy({ where: { id: req.params.id } });
+      const user = await Usuario.findByPk(req.params.id);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      }
+
+      const emailLower = user.email ? user.email.toLowerCase().trim() : null;
+      const cliente = emailLower ? await Cliente.findOne({ where: { email: { [Op.iLike]: emailLower } } }) : null;
+
+      const transaction = await sequelize.transaction();
+      try {
+        if (cliente) {
+          await Venta.update(
+              { 
+                  idCliente: null 
+              },
+              { where: { idCliente: cliente.id }, transaction }
+          );
+          await cliente.destroy({ transaction });
+        }
+
+        await Usuario.destroy({ where: { id: req.params.id }, transaction });
+        await transaction.commit();
+      } catch (err) {
+        await transaction.rollback();
+        throw err;
+      }
+
       res.json({ success: true, message: 'Eliminado' });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });

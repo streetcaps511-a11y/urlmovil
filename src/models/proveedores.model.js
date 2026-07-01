@@ -16,6 +16,12 @@ const Proveedor = sequelize.define('Proveedor', {
         field: 'IdProveedor',
         comment: 'Identificador único del proveedor'
     },
+    supplierType: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'TipoProveedor',
+        comment: 'Tipo de proveedor (Empresa, Individual, etc.)'
+    },
     companyName: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -83,18 +89,6 @@ const Proveedor = sequelize.define('Proveedor', {
         },
         field: 'Email',
         comment: 'Correo electrónico de contacto'
-    },
-    supplierType: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-        field: 'TipoProveedor',
-        comment: 'Tipo de proveedor (Empresa, Individual, etc.)'
-    },
-    department: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
-        field: 'Departamento',
-        comment: 'Departamento de ubicación en Colombia'
     },
     city: {
         type: DataTypes.STRING(100),

@@ -27,6 +27,9 @@ router.get('/', (req, res) => {
   });
 });
 
+router.post('/enviar-pin-registro', authController.enviarPinRegistro);
+router.get('/check-exists', authController.checkExistence);
+router.post('/verificar-pin-registro', authController.verificarPinYRegistrar);
 router.post('/registro', authController.registro);
 router.post('/login', authController.login);
 router.post('/logout', verifyToken, authController.logout);

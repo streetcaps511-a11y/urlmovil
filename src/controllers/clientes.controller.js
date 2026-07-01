@@ -72,7 +72,6 @@ const clienteController = {
                     numeroDocumento: cliente.numeroDocumento,
                     telefono: cliente.telefono || 'No registrado',
                     ciudad: cliente.ciudad || 'No registrada',
-                    departamento: cliente.departamento || 'No registrado',
                     direccion: cliente.direccion || 'No registrada',
                     isActive: cliente.isActive,
                     estadoTexto: cliente.isActive ? 'Activo' : 'Inactivo',
@@ -280,11 +279,28 @@ const clienteController = {
                 return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
             }
 
+            // 🛡️ REGLA: No se puede eliminar si tiene ventas asociadas que no estén anuladas
+            const activeSalesCount = await Venta.count({
+                where: {
+                    idCliente: id,
+                    idEstado: {
+                        [Op.notIn]: ['Anulada', 'anulada']
+                    }
+                }
+            });
+
+            if (activeSalesCount > 0) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `No se puede eliminar el cliente porque tiene ${activeSalesCount} venta(s) asociada(s) activa(s).`
+                });
+            }
+
             // 1. Desvincular ventas sin perder el nombre (Historial)
             await Venta.update(
                 { 
-                    idCliente: null, 
-                    clienteNombreHistorico: cliente.nombreCompleto 
+                    idCliente: null 
                 },
                 { where: { idCliente: id }, transaction }
             );
@@ -577,7 +593,6 @@ const clienteController = {
                 phone, Telefono, telefono,
                 address, Direccion, direccion,
                 city, Ciudad, ciudad,
-                department, Departamento, departamento,
                 email, Email, Correo,
                 documentType, tipoDocumento, TipoDocumento,
                 documentNumber, numeroDocumento, Documento, NumeroDocumento,
@@ -590,10 +605,9 @@ const clienteController = {
                 telefono: (phone || Telefono || telefono || cliente.telefono || '').toString().replace(/\D/g, '') || null,
                 direccion: address || Direccion || direccion || cliente.direccion,
                 ciudad: city || Ciudad || ciudad || cliente.ciudad,
-                departamento: department || Departamento || departamento || cliente.departamento,
                 tipoDocumento: documentType || tipoDocumento || TipoDocumento || cliente.tipoDocumento,
                 numeroDocumento: (documentNumber || numeroDocumento || NumeroDocumento || Documento || cliente.numeroDocumento || '').toString().replace(/\D/g, '') || null,
-                avatarUrl: avatarUrl || Avatar || cliente.avatarUrl,
+                avatarUrl: avatarUrl !== undefined ? avatarUrl : (Avatar !== undefined ? Avatar : cliente.avatarUrl),
                 email: (email || Email || Correo || cliente.email).toLowerCase()
             };
 

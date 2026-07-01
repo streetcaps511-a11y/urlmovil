@@ -138,21 +138,15 @@ const Producto = sequelize.define('Producto', {
             isArrayUrl: (urls) => {
                 if (Array.isArray(urls)) {
                     urls.forEach(url => {
-                        if (url && !url.toString().startsWith('http')) {
-                            throw new Error('Cada imagen debe ser una URL válida');
+                        if (url && !(url.toString().startsWith('http') || url.toString().startsWith('data:image/'))) {
+                            throw new Error('Cada imagen debe ser una URL válida o una imagen base64');
                         }
                     });
                 }
             }
         }
     },
-    destacado: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        field: 'Destacado',
-        comment: 'Indica si el producto aparece como destacado'
-    },
+
     sales: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -192,10 +186,7 @@ const Producto = sequelize.define('Producto', {
             // 🔥 CALCULAR STOCK TOTAL AUTOMÁTICAMENTE
             if (producto.tallasStock && Array.isArray(producto.tallasStock)) {
                 producto.stock = producto.tallasStock.reduce((total, item) => total + (parseInt(item.cantidad) || 0), 0);
-                console.log(`📊 Stock calculado para ${producto.nombre}: ${producto.stock}`);
             }
-
-            console.log(`📦 Creando producto: ${producto.nombre}`);
         },
         beforeUpdate: (producto) => {
             if (producto.changed('enOfertaVenta') || producto.changed('precioVenta') || producto.changed('precioOferta')) {
@@ -211,10 +202,7 @@ const Producto = sequelize.define('Producto', {
             // 🔥 RE-CALCULAR STOCK TOTAL AUTOMÁTICAMENTE AL EDITAR
             if (producto.tallasStock && Array.isArray(producto.tallasStock)) {
                 producto.stock = producto.tallasStock.reduce((total, item) => total + (parseInt(item.cantidad) || 0), 0);
-                console.log(`📊 Stock re-calculado para ${producto.nombre}: ${producto.stock}`);
             }
-
-            console.log(`📦 Actualizando producto ID: ${producto.id}`);
         }
     }
 });

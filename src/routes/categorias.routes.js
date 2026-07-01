@@ -10,9 +10,9 @@ import { verifyToken, checkPermission } from '../middlewares/auth.middleware.js'
 
 // Rutas públicas
 router.get('/', categoriaController.getAllCategorias);
-router.get('/:id', categoriaController.getCategoriaById);
 router.get('/activas', categoriaController.getCategoriasActivas);
 router.get('/estadisticas', categoriaController.getEstadisticas);
+router.get('/:id', categoriaController.getCategoriaById);
 
 // Rutas protegidas (Mutaciones y administración)
 router.use(verifyToken);

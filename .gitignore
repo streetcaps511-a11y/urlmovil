@@ -10,3 +10,22 @@ build/
 # Local Frontend
 frontend/
 
+# Secrets, certificates, and database dumps
+/ca.pem
+/config.toml
+/database_schema.sql
+
+# Test results
+/test-results/
+
+# Local temporary/junk scripts
+/check_columns.js
+/cleanup_test_data.js
+/delete_test_data.js
+/fix_no_venta.js
+/test-auth.js
+/test-update-role.js
+/test_db_error.js
+
+# Deployment script
+/push_urlmovil.bat

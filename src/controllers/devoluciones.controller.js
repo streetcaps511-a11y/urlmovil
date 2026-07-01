@@ -18,6 +18,7 @@ import cloudinary from "../config/cloudinary.config.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { sendReturnStatusEmail, sendReturnCreationEmail } from "../services/mail.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +27,40 @@ const __dirname = path.dirname(__filename);
  * Helper para disminuir stock del producto de cambio
  */
 const decreaseProductStock = async (devolucion, transaction) => {
+  if (devolucion.pedidoCompleto) {
+    console.log(`📉 Reduciendo stock para Devolución de Pedido Completo de la venta #${devolucion.idVenta}`);
+    const detalles = await DetalleVenta.findAll({
+      where: { idVenta: devolucion.idVenta },
+      transaction,
+    });
+    for (const d of detalles) {
+      const prod = await Producto.findByPk(d.idProducto, { transaction });
+      if (prod) {
+        const reduceQty = parseInt(d.cantidad) || 1;
+        const targetTalla = d.talla ? d.talla.toString().trim().toUpperCase() : "U";
+        let tallasData = Array.isArray(prod.tallasStock) ? [...prod.tallasStock] : [];
+        let updated = false;
+        tallasData = tallasData.map((t) => {
+          const tName = t.talla || t.Nombre || t.nombre || "";
+          const tCompare = String(tName).trim().toUpperCase();
+          if (tCompare === targetTalla) {
+            t.cantidad = Math.max(0, (parseInt(t.cantidad) || 0) - reduceQty);
+            updated = true;
+          }
+          return t;
+        });
+        if (updated) {
+          prod.tallasStock = tallasData;
+          prod.changed("tallasStock", true);
+          prod.stock = tallasData.reduce((acc, t) => acc + (parseInt(t.cantidad) || 0), 0);
+          await prod.save({ transaction });
+          console.log(`📉 Stock de ${prod.nombre} disminuido (talla ${targetTalla}) en ${reduceQty}`);
+        }
+      }
+    }
+    return true;
+  }
+
   let targetId = devolucion.idProductoCambio;
 
   // Si no hay ID, intentar por nombre
@@ -85,6 +120,97 @@ const decreaseProductStock = async (devolucion, transaction) => {
   return false;
 };
 
+/**
+ * Helper para aumentar/restaurar stock del producto de cambio
+ */
+const restoreProductStock = async (devolucion, transaction) => {
+  if (devolucion.pedidoCompleto) {
+    console.log(`📈 Restaurando stock para Devolución de Pedido Completo de la venta #${devolucion.idVenta}`);
+    const detalles = await DetalleVenta.findAll({
+      where: { idVenta: devolucion.idVenta },
+      transaction,
+    });
+    for (const d of detalles) {
+      const prod = await Producto.findByPk(d.idProducto, { transaction });
+      if (prod) {
+        const addQty = parseInt(d.cantidad) || 1;
+        const targetTalla = d.talla ? d.talla.toString().trim().toUpperCase() : "U";
+        let tallasData = Array.isArray(prod.tallasStock) ? [...prod.tallasStock] : [];
+        let updated = false;
+        tallasData = tallasData.map((t) => {
+          const tName = t.talla || t.Nombre || t.nombre || "";
+          const tCompare = String(tName).trim().toUpperCase();
+          if (tCompare === targetTalla) {
+            t.cantidad = (parseInt(t.cantidad) || 0) + addQty;
+            updated = true;
+          }
+          return t;
+        });
+        if (updated) {
+          prod.tallasStock = tallasData;
+          prod.changed("tallasStock", true);
+          prod.stock = tallasData.reduce((acc, t) => acc + (parseInt(t.cantidad) || 0), 0);
+          await prod.save({ transaction });
+          console.log(`📈 Stock de ${prod.nombre} restaurado (talla ${targetTalla}) en ${addQty}`);
+        }
+      }
+    }
+    return true;
+  }
+
+  let targetId = devolucion.idProductoCambio;
+
+  if (!targetId && devolucion.productoCambio) {
+    const found = await Producto.findOne({
+      where: { nombre: { [Op.iLike]: devolucion.productoCambio } },
+      transaction,
+    });
+    if (found) targetId = found.id;
+  }
+
+  if (!targetId) return false;
+
+  const prodC = await Producto.findByPk(targetId, { transaction });
+  if (!prodC) return false;
+
+  const addQty = parseInt(devolucion.cantidad) || 1;
+  const targetTalla = devolucion.talla
+    ? devolucion.talla.toString().trim().toUpperCase()
+    : "U";
+
+  let tallasData = Array.isArray(prodC.tallasStock)
+    ? [...prodC.tallasStock]
+    : [];
+  let updated = false;
+
+  tallasData = tallasData.map((t) => {
+    const tName = t.talla || t.Nombre || t.nombre || "";
+    const tCompare = String(tName).trim().toUpperCase();
+    if (tCompare === targetTalla) {
+      t.cantidad = (parseInt(t.cantidad) || 0) + addQty;
+      updated = true;
+    }
+    return t;
+  });
+
+  if (updated) {
+    prodC.tallasStock = tallasData;
+    prodC.changed("tallasStock", true);
+    prodC.stock = tallasData.reduce(
+      (acc, t) => acc + (parseInt(t.cantidad) || 0),
+      0,
+    );
+    await prodC.save({ transaction });
+    console.log(
+      `📈 Stock de ${prodC.nombre} restaurado (talla ${targetTalla})`,
+    );
+    return true;
+  }
+
+  return false;
+};
+
+
 const devolucionController = {
   getEstadisticas: async (req, res) => {
     try {
@@ -114,6 +240,17 @@ const devolucionController = {
                 as: "clienteData",
                 attributes: ["id", "nombreCompleto", "numeroDocumento"],
               },
+              {
+                model: DetalleVenta,
+                as: "detalles",
+                include: [
+                  {
+                    model: Producto,
+                    as: "producto",
+                    attributes: ["id", "nombre", "imagenes"]
+                  }
+                ]
+              }
             ],
           },
           {
@@ -126,11 +263,11 @@ const devolucionController = {
         ],
       });
 
-      // Asignar noDevolucion = 10000 + id si no existe
+      // Asignar noDevolucion = 1000 + id si no existe
       const rowsConNumero = rows.map(row => {
         const rowData = row.toJSON();
         if (!rowData.noDevolucion) {
-          rowData.noDevolucion = 10000 + rowData.id;
+          rowData.noDevolucion = 1000 + rowData.id;
         }
         return rowData;
       });
@@ -153,7 +290,31 @@ const devolucionController = {
   getDevolucionById: async (req, res) => {
     try {
       const data = await Devolucion.findByPk(req.params.id, {
-        include: [{ model: Producto, as: "productoInfo", paranoid: false }],
+        include: [
+          { model: Producto, as: "productoInfo", paranoid: false },
+          {
+            model: Venta,
+            as: "ventaOriginal",
+            include: [
+              {
+                model: Cliente,
+                as: "clienteData",
+                attributes: ["id", "nombreCompleto", "numeroDocumento"],
+              },
+              {
+                model: DetalleVenta,
+                as: "detalles",
+                include: [
+                  {
+                    model: Producto,
+                    as: "producto",
+                    attributes: ["id", "nombre", "imagenes"]
+                  }
+                ]
+              }
+            ],
+          }
+        ],
       });
       if (!data)
         return res
@@ -162,7 +323,7 @@ const devolucionController = {
 
       const dataJSON = data.toJSON();
       if (!dataJSON.noDevolucion) {
-        dataJSON.noDevolucion = 10000 + dataJSON.id;
+        dataJSON.noDevolucion = 1000 + dataJSON.id;
       }
 
       res.json({ success: true, data: dataJSON });
@@ -179,7 +340,7 @@ const devolucionController = {
       const dataWithNumbers = data.map(dev => {
         const devJSON = dev.toJSON();
         if (!devJSON.noDevolucion) {
-          devJSON.noDevolucion = 10000 + devJSON.id;
+          devJSON.noDevolucion = 1000 + devJSON.id;
         }
         return devJSON;
       });
@@ -197,7 +358,7 @@ const devolucionController = {
       const dataWithNumbers = data.map(dev => {
         const devJSON = dev.toJSON();
         if (!devJSON.noDevolucion) {
-          devJSON.noDevolucion = 10000 + devJSON.id;
+          devJSON.noDevolucion = 1000 + devJSON.id;
         }
         return devJSON;
       });
@@ -225,6 +386,7 @@ const devolucionController = {
         mismoModelo,
         pedidoCompleto,
         idLote,
+        items, // <--- Array de items para devolución múltiple
       } = req.body;
 
       // Logging detallado de entrada
@@ -233,13 +395,9 @@ const devolucionController = {
       console.log("=".repeat(60));
       console.log("[ENTRADA] IDs recibidos:");
       console.log(`  - idVenta: ${idVenta} (tipo: ${typeof idVenta})`);
-      console.log(
-        `  - idProductoOriginal: ${idProductoOriginal} (tipo: ${typeof idProductoOriginal})`,
-      );
       console.log(`  - cantidad: ${cantidad}`);
-      console.log(`  - talla: ${talla}`);
       console.log(`  - evidencia presente: ${!!evidencia}`);
-      console.log(`  - evidencia2 presente: ${!!evidencia2}`);
+      console.log(`  - tiene items array: ${!!items && Array.isArray(items)}`);
 
       const userRolId = Number(req.usuario?.idRol || req.usuario?.IdRol || 0);
       const rolName = String(
@@ -252,18 +410,8 @@ const devolucionController = {
         idCliente = req.usuario.clienteData.id;
       }
 
-      // 🛠️ VALIDACIÓN DE IDs
+      // 🛠️ VALIDACIÓN DE ID DE VENTA
       const idVentaNum = Number(idVenta);
-      const idProductoNum = Number(idProductoOriginal);
-
-      console.log("\n🛠️ Validando IDs:");
-      console.log(
-        `   - idVenta: ${idVenta} (tipo: ${typeof idVenta}) -> Número: ${idVentaNum}`,
-      );
-      console.log(
-        `   - idProductoOriginal: ${idProductoOriginal} (tipo: ${typeof idProductoOriginal}) -> Número: ${idProductoNum}`,
-      );
-
       if (!idVenta || isNaN(idVentaNum) || idVentaNum <= 0) {
         console.error(`❌ ERROR: idVenta inválido. Valor: ${idVenta}`);
         await transaction.rollback();
@@ -273,107 +421,130 @@ const devolucionController = {
         });
       }
 
-      if (!idProductoOriginal || isNaN(idProductoNum) || idProductoNum <= 0) {
-        console.error(
-          `❌ ERROR: idProductoOriginal inválido. Valor: ${idProductoOriginal}`,
-        );
+      const isPedidoCompleto = pedidoCompleto === true || pedidoCompleto === "true";
+
+      // Validar que la evidencia fotográfica esté presente
+      if (!evidencia) {
         await transaction.rollback();
         return res.status(400).json({
           success: false,
-          message: `idProductoOriginal inválido. Se recibió: "${idProductoOriginal}" (tipo: ${typeof idProductoOriginal}). Debe ser un número > 0.`,
+          message: "La evidencia fotográfica es obligatoria."
         });
       }
 
-      console.log(
-        `✅ IDs validados correctamente: idVenta=${idVentaNum}, idProducto=${idProductoNum}`,
-      );
-      // Fin de validación
-
-      // 🔍 PREVENIR DUPLICADOS
-      const existing = await Devolucion.findOne({
-        where: {
-          idVenta: Number(idVenta),
-          idProducto: Number(idProductoOriginal),
-        },
-        transaction,
-      });
-      if (existing) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message:
-            "Ya existe una solicitud de devolución para este producto en este pedido",
-        });
+      // Construir la lista de items a procesar
+      let itemsList = [];
+      if (isPedidoCompleto) {
+        itemsList = [{
+          idProductoOriginal: null,
+          idProductoCambio: null,
+          mismoModelo: true,
+          cantidad: parseInt(cantidad) || 1,
+          precioUnitario: parseFloat(precioUnitario) || 0,
+          talla: null
+        }];
+      } else if (items && Array.isArray(items) && items.length > 0) {
+        itemsList = items.map(item => ({
+          idProductoOriginal: item.idProductoOriginal,
+          idProductoCambio: item.idProductoCambio,
+          mismoModelo: item.mismoModelo === true || item.mismoModelo === "true",
+          cantidad: parseInt(item.cantidad) || 1,
+          precioUnitario: parseFloat(item.precioUnitario) || 0,
+          talla: item.talla || null
+        }));
+      } else {
+        itemsList = [{
+          idProductoOriginal,
+          idProductoCambio,
+          mismoModelo: mismoModelo === true || mismoModelo === "true" || false,
+          cantidad: parseInt(cantidad) || 1,
+          precioUnitario: parseFloat(precioUnitario) || 0,
+          talla: talla || null
+        }];
       }
 
-      let extra = {
-        idEstado: isAdmin ? "Completada" : "Pendiente",
-        idProducto: parseInt(idProductoOriginal) || null,
-        idProductoCambio: parseInt(idProductoCambio) || null,
-        idVenta: parseInt(idVenta) || null,
-        cantidad: parseInt(cantidad) || 1,
-        valor: parseFloat(precioUnitario) || 0,
-        talla: talla || null,
-        motivo: motivo || null,
-        observacion: observacion || null,
-        mismoModelo: mismoModelo === true || mismoModelo === "true" || false,
-        pedidoCompleto:
-          pedidoCompleto === true || pedidoCompleto === "true" || false,
-        noVenta: idVenta || null,
-        idLote: idLote || null,
-      };
-
-      // 🔍 BUSCAR INFO DEL CLIENTE
-      if (idCliente) {
-        const cli = await Cliente.findByPk(idCliente, { transaction });
-        if (cli) {
-          extra.tipoDocumento = cli.tipoDocumento || "CC";
-          extra.numeroDocumento = cli.numeroDocumento || cli.Documento || null;
-          extra.nombreCliente = cli.nombreCompleto || cli.Nombre || null;
-        }
-      }
-
-      if (idProductoOriginal) {
-        const prod = await Producto.findByPk(idProductoOriginal, {
+      // 🛠️ VALIDACIONES DE ID Y LÍMITES DE CANTIDAD
+      if (isPedidoCompleto) {
+        const existing = await Devolucion.findOne({
+          where: {
+            idVenta: idVentaNum,
+            pedidoCompleto: true,
+          },
           transaction,
         });
-        if (prod) {
-          extra.productoOriginal = (prod.Nombre || prod.nombre || "").substring(
-            0,
-            255,
-          );
-          if (!precioUnitario) extra.valor = prod.Precio || prod.precio || 0;
+        if (existing) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Ya existe una solicitud de devolución completa para este pedido",
+          });
         }
-      }
+      } else {
+        // Agrupar cantidades por producto original
+        const requestedTally = {};
+        for (const item of itemsList) {
+          const origId = Number(item.idProductoOriginal);
+          if (!item.idProductoOriginal || isNaN(origId) || origId <= 0) {
+            await transaction.rollback();
+            return res.status(400).json({
+              success: false,
+              message: `idProductoOriginal inválido. Se recibió: "${item.idProductoOriginal}". Debe ser un número > 0.`,
+            });
+          }
+          requestedTally[origId] = (requestedTally[origId] || 0) + Number(item.cantidad || 1);
+        }
 
-      if (idProductoCambio) {
-        const prodC = await Producto.findByPk(idProductoCambio, {
-          transaction,
-        });
-        if (prodC) {
-          extra.productoCambio = (prodC.Nombre || prodC.nombre || "").substring(
-            0,
-            255,
-          );
+        // Verificar el límite de cantidad comprada vs devuelta
+        for (const [origIdStr, reqQty] of Object.entries(requestedTally)) {
+          const origId = Number(origIdStr);
+          const detail = await DetalleVenta.findOne({
+            where: { idVenta: idVentaNum, idProducto: origId },
+            transaction
+          });
+          if (!detail) {
+            await transaction.rollback();
+            return res.status(400).json({
+              success: false,
+              message: `El producto con ID ${origId} no pertenece al pedido PED-${1000 + idVentaNum}.`
+            });
+          }
+
+          const purchasedQty = parseInt(detail.cantidad) || 0;
+
+          // Obtener cantidad ya devuelta en solicitudes no rechazadas
+          const existingReturns = await Devolucion.findAll({
+            where: {
+              idVenta: idVentaNum,
+              idProducto: origId,
+              idEstado: { [Op.notIn]: ["Rechazada", "Rechazado", "3"] }
+            },
+            transaction
+          });
+          const alreadyReturnedQty = existingReturns.reduce((sum, r) => sum + (parseInt(r.cantidad) || 0), 0);
+
+          if (alreadyReturnedQty + reqQty > purchasedQty) {
+            await transaction.rollback();
+            return res.status(400).json({
+              success: false,
+              message: `No puedes solicitar el cambio de más unidades de las disponibles. Compradas: ${purchasedQty}, en cambio previo: ${alreadyReturnedQty}, solicitando ahora: ${reqQty}.`
+            });
+          }
         }
       }
 
       // 📸 MANEJO DE EVIDENCIA CON CLOUDINARY
       const saveEvidenceToCloudinary = async (base64, prefix) => {
-        // 1️⃣ VALIDACIÓN INICIAL
         if (!base64) {
           console.log(`⚠️ ${prefix} está vacío o null, skipping...`);
           return null;
         }
 
-        // 2️⃣ ASEGURAR QUE ES STRING
         let base64String = String(base64).trim();
         if (typeof base64String !== "string" || base64String.length === 0) {
           console.warn(`⚠️ ${prefix} no es un string válido o está vacío`);
           return null;
         }
 
-        // 3️⃣ VALIDAR FORMATO DATA URI
         if (!base64String.startsWith("data:image/")) {
           console.warn(
             `⚠️ ${prefix} no tiene el prefijo correcto. Prefijo encontrado: ${base64String.substring(0, 30)}`,
@@ -381,7 +552,6 @@ const devolucionController = {
           return null;
         }
 
-        // 4️⃣ VALIDAR QUE CONTIENE LA PARTE BASE64
         if (!base64String.includes(",")) {
           console.error(
             `❌ ${prefix} no tiene el formato correcto (falta coma separadora)`,
@@ -390,12 +560,6 @@ const devolucionController = {
         }
 
         try {
-          console.log(`⏳ Subiendo ${prefix} a Cloudinary...`);
-          console.log(
-            `📝 Tamaño de ${prefix}: ${(base64String.length / 1024).toFixed(2)} KB`,
-          );
-
-          // 5️⃣ INTENTAR SUBIR A CLOUDINARY
           const result = await cloudinary.uploader.upload(base64String, {
             folder: "devoluciones",
             resource_type: "auto",
@@ -404,58 +568,117 @@ const devolucionController = {
             type: "upload",
           });
 
-          console.log(
-            `✅ ${prefix} guardado exitosamente en Cloudinary:`,
-            result.secure_url,
-          );
           return result.secure_url;
         } catch (err) {
-          // 6️⃣ LOGGING DETALLADO DEL ERROR
-          console.error(`❌ Error subiendo ${prefix} a Cloudinary:`);
-          console.error(
-            `   - Código de error: ${err.status || err.statusCode || "N/A"}`,
-          );
-          console.error(`   - Mensaje: ${err.message}`);
-          console.error(`   - Response: ${err.http_code || "N/A"}`);
-          if (err.error) {
-            console.error(`   - Error details: ${JSON.stringify(err.error)}`);
-          }
-          console.warn(
-            `⚠️ Continuando sin evidencia (guardará null). Error: ${err.message}`,
-          );
+          console.error(`❌ Error subiendo ${prefix} a Cloudinary:`, err.message);
           return null;
         }
       };
 
-      const evidenciaUrl = await saveEvidenceToCloudinary(
-        evidencia,
-        "evidencia",
-      );
-      const evidencia2Url = await saveEvidenceToCloudinary(
-        evidencia2,
-        "evidencia2",
-      );
+      const evidenciaUrl = await saveEvidenceToCloudinary(evidencia, "evidencia");
+      const evidencia2Url = await saveEvidenceToCloudinary(evidencia2, "evidencia2");
 
-      const nueva = await Devolucion.create(
-        {
-          ...extra,
-          evidencia: evidenciaUrl || null,
-          evidencia2: evidencia2Url || null,
-        },
-        { transaction },
-      );
+      const createdRecords = [];
 
-      // Asignar noDevolucion = 10000 + id
-      nueva.noDevolucion = 10000 + nueva.id;
-      await nueva.save({ transaction });
+      // Guardar cada registro
+      for (const item of itemsList) {
+        let extra = {
+          idEstado: isAdmin ? "Completada" : "Pendiente",
+          idProducto: isPedidoCompleto ? null : Number(item.idProductoOriginal),
+          idProductoCambio: isPedidoCompleto ? null : (item.idProductoCambio ? Number(item.idProductoCambio) : null),
+          idVenta: idVentaNum,
+          cantidad: parseInt(item.cantidad) || 1,
+          valor: parseFloat(item.precioUnitario) || 0,
+          talla: isPedidoCompleto ? null : (item.talla || null),
+          motivo: motivo || null,
+          observacion: observacion || null,
+          mismoModelo: item.mismoModelo,
+          pedidoCompleto: isPedidoCompleto,
+          noVenta: idVenta || null,
+          idLote: idLote || null,
+        };
 
-      // 🔥 Si es Admin, descontar stock de cambio inmediatamente
-      if (isAdmin && (nueva.idProductoCambio || nueva.productoCambio)) {
-        await decreaseProductStock(nueva, transaction);
+        // Buscar info del cliente
+        if (idCliente) {
+          const cli = await Cliente.findByPk(idCliente, { transaction });
+          if (cli) {
+            extra.tipoDocumento = cli.tipoDocumento || "CC";
+            extra.numeroDocumento = cli.numeroDocumento || cli.Documento || null;
+            extra.nombreCliente = cli.nombreCompleto || cli.Nombre || null;
+          }
+        }
+
+        if (isPedidoCompleto) {
+          extra.productoOriginal = "Pedido Completo";
+          extra.productoCambio = "Pedido Completo";
+        } else {
+          if (item.idProductoOriginal) {
+            const prod = await Producto.findByPk(item.idProductoOriginal, { transaction });
+            if (prod) {
+              extra.productoOriginal = (prod.Nombre || prod.nombre || "").substring(0, 255);
+              if (!item.precioUnitario) extra.valor = prod.Precio || prod.precio || 0;
+            }
+          }
+
+          if (item.idProductoCambio) {
+            const prodC = await Producto.findByPk(item.idProductoCambio, { transaction });
+            if (prodC) {
+              extra.productoCambio = (prodC.Nombre || prodC.nombre || "").substring(0, 255);
+            }
+          }
+        }
+
+        const nueva = await Devolucion.create(
+          {
+            ...extra,
+            evidencia: evidenciaUrl || null,
+            evidencia2: evidencia2Url || null,
+          },
+          { transaction }
+        );
+
+        nueva.noDevolucion = 1000 + nueva.id;
+        await nueva.save({ transaction });
+
+        // Si es Admin, descontar stock de cambio inmediatamente
+        if (isAdmin && (nueva.idProductoCambio || nueva.productoCambio)) {
+          await decreaseProductStock(nueva, transaction);
+        }
+
+        createdRecords.push(nueva);
       }
 
       await transaction.commit();
-      res.status(201).json({ success: true, data: nueva });
+
+      // Enviar correo de notificación (de creación o aprobación inmediata si es admin)
+      try {
+        const firstRecord = createdRecords[0];
+        if (firstRecord) {
+          // Buscar email del cliente desde la venta original
+          const ventaFull = await Venta.findByPk(firstRecord.idVenta, {
+            include: [{ model: Cliente, as: 'clienteData' }]
+          });
+          const email = ventaFull?.clienteData?.email;
+          if (email) {
+            const clienteName = firstRecord.nombreCliente || ventaFull.clienteData?.nombreCompleto || 'Cliente';
+            if (firstRecord.idEstado === 'Completada') {
+              // Si es admin y se aprobó de inmediato
+              sendReturnStatusEmail(email, clienteName, firstRecord.toJSON())
+                .then(() => console.log(`📧 Notificación de devolución DEV-${firstRecord.noDevolucion || firstRecord.id} (Aprobación inmediata) enviada a ${email}`))
+                .catch((err) => console.error("⚠️ Error enviando correo de devolución inmediata:", err.message));
+            } else {
+              // Si se creó y queda Pendiente
+              sendReturnCreationEmail(email, clienteName, firstRecord.toJSON())
+                .then(() => console.log(`📧 Correo de solicitud de devolución recibida DEV-${firstRecord.noDevolucion || firstRecord.id} enviado a ${email}`))
+                .catch((err) => console.error("⚠️ Error enviando correo de creación de devolución:", err.message));
+            }
+          }
+        }
+      } catch (mailErr) {
+        console.error("⚠️ Error intentando procesar envío de correos en createDevolucion:", mailErr.message);
+      }
+
+      res.status(201).json({ success: true, data: createdRecords[0], allCreated: createdRecords });
     } catch (error) {
       if (transaction) await transaction.rollback();
       console.error("❌ Error en createDevolucion:", error);
@@ -468,7 +691,21 @@ const devolucionController = {
     let transaction;
     try {
       transaction = await sequelize.transaction();
-      const dev = await Devolucion.findByPk(id, { transaction });
+      const dev = await Devolucion.findByPk(id, {
+        include: [
+          {
+            model: Venta,
+            as: "ventaOriginal",
+            include: [
+              {
+                model: Cliente,
+                as: "clienteData",
+              }
+            ]
+          }
+        ],
+        transaction
+      });
       if (!dev) {
         if (transaction) await transaction.rollback();
         return res
@@ -488,36 +725,8 @@ const devolucionController = {
 
       if (newStatus === "Completada" && dev.idEstado !== "Completada") {
         await decreaseProductStock(dev, transaction);
-      }
-
-      // 🔄 PROPAGAR CAMBIOS AL LOTE O VENTA SI EXISTE
-      const propagateWhere = dev.idLote
-        ? { idLote: dev.idLote, id: { [Op.ne]: dev.id } }
-        : dev.noVenta
-          ? { noVenta: dev.noVenta, id: { [Op.ne]: dev.id } }
-          : null;
-
-      if (propagateWhere) {
-        const siblings = await Devolucion.findAll({
-          where: propagateWhere,
-          transaction,
-        });
-
-        for (const sib of siblings) {
-          if (newStatus === "Completada" && sib.idEstado !== "Completada") {
-            await decreaseProductStock(sib, transaction);
-          }
-          await sib.update(
-            {
-              idEstado: newStatus,
-              observacion:
-                req.body.motivoRechazo ||
-                req.body.observacion ||
-                dev.observacion,
-            },
-            { transaction },
-          );
-        }
+      } else if (newStatus === "Rechazada" && dev.idEstado === "Completada") {
+        await restoreProductStock(dev, transaction);
       }
 
       await dev.update(
@@ -530,6 +739,16 @@ const devolucionController = {
       );
 
       await transaction.commit();
+
+      // Enviar correo de notificación de manera segura
+      const clienteName = dev.nombreCliente || dev.ventaOriginal?.clienteData?.nombreCompleto || 'Cliente';
+      const email = dev.ventaOriginal?.clienteData?.email;
+      if (email) {
+        sendReturnStatusEmail(email, clienteName, dev.toJSON())
+          .then(() => console.log(`📧 Notificación de devolución DEV-${dev.noDevolucion || dev.id} enviada a ${email}`))
+          .catch((err) => console.error("⚠️ Error enviando correo de devolución:", err.message));
+      }
+
       res.json({
         success: true,
         message: dev.noVenta
@@ -543,10 +762,25 @@ const devolucionController = {
   },
 
   deleteDevolucion: async (req, res) => {
+    let transaction;
     try {
-      await Devolucion.destroy({ where: { id: req.params.id } });
+      transaction = await sequelize.transaction();
+      const dev = await Devolucion.findByPk(req.params.id, { transaction });
+      if (!dev) {
+        if (transaction) await transaction.rollback();
+        return res.status(404).json({ success: false, message: "Devolución no encontrada" });
+      }
+
+      // Si la devolución estaba completada, restaurar el stock del producto de cambio antes de borrar
+      if (dev.idEstado === "Completada") {
+        await restoreProductStock(dev, transaction);
+      }
+
+      await dev.destroy({ transaction });
+      await transaction.commit();
       res.json({ success: true, message: "Eliminada" });
     } catch (error) {
+      if (transaction) await transaction.rollback();
       res.status(400).json({ success: false, message: error.message });
     }
   },
@@ -611,7 +845,7 @@ const devolucionController = {
       const dataWithNumbers = data.map(dev => {
         const devJSON = dev.toJSON();
         if (!devJSON.noDevolucion) {
-          devJSON.noDevolucion = 10000 + devJSON.id;
+          devJSON.noDevolucion = 1000 + devJSON.id;
         }
         return devJSON;
       });

@@ -26,8 +26,8 @@ async function assignDevolucionNumbers() {
 
     let updated = 0;
     for (const dev of devoluciones) {
-      // Asignar número: 10000 + id
-      dev.noDevolucion = 10000 + dev.id;
+      // Asignar número: 1000 + id
+      dev.noDevolucion = 1000 + dev.id;
       await dev.save();
       console.log(`✓ DEV-${dev.noDevolucion} (ID: ${dev.id}) - ${dev.nombreCliente || 'Sin nombre'}`);
       updated++;

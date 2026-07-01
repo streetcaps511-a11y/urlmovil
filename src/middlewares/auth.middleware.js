@@ -77,7 +77,7 @@ export const verifyToken = async (req, res, next) => {
         {
           model: Cliente,
           as: 'clienteData',
-          attributes: ['id', 'direccion', 'ciudad', 'departamento', 'avatarUrl']
+          attributes: ['id', 'direccion', 'ciudad', 'avatarUrl']
         }
       ]
     });

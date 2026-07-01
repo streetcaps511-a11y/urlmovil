@@ -8,15 +8,101 @@ import { Usuario, Rol, Cliente, DetallePermiso, Permiso, sequelize } from '../mo
 import { Op } from 'sequelize';
 import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import authService from '../services/auth.service.js';
+import { sendPinEmail } from '../services/mail.service.js';
 import crypto from 'crypto';
 
+// Almacén en memoria para los PINs de verificación (email -> { pin, expiresAt })
+const verificationStore = new Map();
+const PIN_TTL_MS = 15 * 60 * 1000; // 15 minutos
+
 const authController = {
+    enviarPinRegistro: async (req, res) => {
+        try {
+            const { correo } = req.body;
+            const searchEmail = correo?.trim().toLowerCase();
+
+            if (!searchEmail) {
+                return res.status(400).json({ success: false, message: 'El correo electrónico es requerido' });
+            }
+
+            // Verificar si el correo ya existe en Usuarios o Clientes
+            const userExists = await Usuario.findOne({ where: { email: searchEmail } });
+            const clienteExists = await Cliente.findOne({ where: { email: searchEmail } });
+            if (userExists || clienteExists) {
+                return res.status(400).json({ success: false, message: 'El correo electrónico ya está registrado. Por favor, intenta con otro o inicia sesión.' });
+            }
+
+            // Generar PIN numérico de 6 dígitos (fijo para correos de prueba)
+            const pin = searchEmail.endsWith('@test.com') 
+                ? '123456' 
+                : crypto.randomInt(100000, 1000000).toString();
+            const expiresAt = new Date(Date.now() + PIN_TTL_MS);
+
+            // Guardar PIN en memoria
+            verificationStore.set(searchEmail, { pin, expiresAt });
+
+            // Enviar correo con la plantilla premium solo si no es de prueba
+            if (!searchEmail.endsWith('@test.com')) {
+                await sendPinEmail(searchEmail, pin);
+            }
+
+            res.json({ success: true, message: 'Código de verificación enviado a tu correo.' });
+        } catch (error) {
+            console.error('🔴 [ERROR ENVIAR PIN]:', error);
+            res.status(500).json({ success: false, message: 'Error enviando el código de verificación.' });
+        }
+    },
+
+    verificarPinYRegistrar: async (req, res) => {
+        try {
+            const { correo, pin, ...restoDatos } = req.body;
+            const searchEmail = correo?.trim().toLowerCase();
+
+            if (!searchEmail || !pin) {
+                return res.status(400).json({ success: false, message: 'Correo y código PIN son requeridos.' });
+            }
+
+            const record = verificationStore.get(searchEmail);
+
+            if (!record) {
+                return res.status(400).json({ success: false, message: 'No se ha solicitado un código para este correo o ya expiró.' });
+            }
+            if (record.pin !== pin) {
+                return res.status(400).json({ success: false, message: 'El código es incorrecto.' });
+            }
+            if (new Date() > record.expiresAt) {
+                verificationStore.delete(searchEmail);
+                return res.status(400).json({ success: false, message: 'El código ha expirado. Solicita uno nuevo.' });
+            }
+
+            // El PIN es correcto, procedemos a registrar al usuario
+            // Eliminar el PIN usado para que no se re-utilice
+            verificationStore.delete(searchEmail);
+
+            // Reensamblar el body sin el PIN y pasarlo al registro normal
+            req.body = { correo, ...restoDatos };
+            return await authController.registro(req, res);
+
+        } catch (error) {
+            console.error('🔴 [ERROR VERIFICAR PIN Y REGISTRO]:', error);
+            res.status(500).json({ success: false, message: 'Error en el proceso de verificación y registro.' });
+        }
+    },
+
     registro: async (req, res) => {
         const t = await sequelize.transaction();
         try {
             const { nombre, correo, clave, esCliente, datosCliente } = req.body;
             const searchEmail = correo.trim().toLowerCase();
             
+            // Verificar si el correo ya existe en Usuarios o Clientes
+            const userExists = await Usuario.findOne({ where: { email: searchEmail }, transaction: t });
+            const clienteExists = await Cliente.findOne({ where: { email: searchEmail }, transaction: t });
+            if (userExists || clienteExists) {
+                await t.rollback();
+                return res.status(400).json({ success: false, message: 'El correo electrónico ya está registrado. Por favor, intenta con otro o inicia sesión.' });
+            }
+
             // Buscar rol cliente (ID por defecto para registros nuevos)
             let rolCliente = await Rol.findOne({ 
                 where: { nombre: { [Op.iLike]: 'Cliente' } },
@@ -28,6 +114,7 @@ const authController = {
                 rolCliente = await Rol.create({ 
                     id: maxRolId + 1, 
                     nombre: 'Cliente', 
+                    descripcion: 'Acceso a la página principal',
                     isActive: true 
                 }, { transaction: t }); 
             }
@@ -108,7 +195,7 @@ const authController = {
                     { 
                         model: Cliente, 
                         as: 'clienteData',
-                        attributes: ['id', 'avatarUrl', 'direccion', 'ciudad', 'departamento', 'isActive']
+                        attributes: ['id', 'avatarUrl', 'direccion', 'ciudad', 'isActive']
                     }
                 ] 
             });
@@ -139,7 +226,7 @@ const authController = {
                             { 
                                 model: Cliente, 
                                 as: 'clienteData',
-                                attributes: ['id', 'avatarUrl', 'direccion', 'ciudad', 'departamento', 'isActive']
+                                attributes: ['id', 'avatarUrl', 'direccion', 'ciudad', 'isActive']
                             }
                         ]
                     });
@@ -174,6 +261,28 @@ const authController = {
 
             if (user.estado === 'pendiente') {
                 return res.status(403).json({ success: false, message: 'Cuenta pendiente de aprobación' });
+            }
+
+            // 🛡️ REGLA DE SEGURIDAD REDUNDANTE (Sincronización Crítica en Login)
+            if (user.clienteData) {
+                // Caso A: Cliente INACTIVO -> Bloquear acceso y sincronizar usuario
+                if (user.clienteData.isActive === false) {
+                    if (user.estado !== 'inactivo') {
+                        await Usuario.update({ estado: 'inactivo' }, { where: { id: user.id } });
+                    }
+                    return res.status(403).json({ success: false, message: 'Su cuenta de cliente está inactiva. Contacte a soporte.' });
+                }
+
+                // Caso B: Cliente ACTIVO pero Usuario INACTIVO -> Auto-activar (Sincronización reparadora)
+                if (user.clienteData.isActive === true && user.estado === 'inactivo') {
+                    // console.log(`🛠️ [LOGIN SYNC] Auto-activando acceso para: ${searchEmail} (Perfil de cliente OK)`);
+                    await Usuario.update({ estado: 'activo' }, { where: { id: user.id } });
+                    user.estado = 'activo';
+                }
+            }
+
+            if (user.estado === 'inactivo') {
+                return res.status(403).json({ success: false, message: 'Cuenta desactivada (Acceso denegado)' });
             }
 
             // 🔐 MANEJO DE PLATAFORMAS (Web vs App)
@@ -211,28 +320,6 @@ const authController = {
             }
             await user.save();
 
-            // 🛡️ REGLA DE SEGURIDAD REDUNDANTE (Sincronización Crítica en Login)
-            if (user.clienteData) {
-                // Caso A: Cliente INACTIVO -> Bloquear acceso y sincronizar usuario
-                if (user.clienteData.isActive === false) {
-                    if (user.estado !== 'inactivo') {
-                        await Usuario.update({ estado: 'inactivo' }, { where: { id: user.id } });
-                    }
-                    return res.status(403).json({ success: false, message: 'Su cuenta de cliente está inactiva. Contacte a soporte.' });
-                }
-
-                // Caso B: Cliente ACTIVO pero Usuario INACTIVO -> Auto-activar (Sincronización reparadora)
-                if (user.clienteData.isActive === true && user.estado === 'inactivo') {
-                    // console.log(`🛠️ [LOGIN SYNC] Auto-activando acceso para: ${searchEmail} (Perfil de cliente OK)`);
-                    await Usuario.update({ estado: 'activo' }, { where: { id: user.id } });
-                    user.estado = 'activo';
-                }
-            }
-
-            if (user.estado === 'inactivo') {
-                return res.status(403).json({ success: false, message: 'Cuenta desactivada (Acceso denegado)' });
-            }
-
             // 🛡️ AUTO-REPARACIÓN DE SEGURIDAD
             // Si el usuario se registró solo (tiene clienteData), NO debe pedir cambio de clave
             if (user.clienteData && user.mustChangePassword) {
@@ -250,7 +337,6 @@ const authController = {
                 userJSON.avatarUrl = user.clienteData.avatarUrl;
                 userJSON.direccion = user.clienteData.direccion;
                 userJSON.ciudad = user.clienteData.ciudad;
-                userJSON.departamento = user.clienteData.departamento;
             }
 
             // 🔐 UNIFICACIÓN DE PERMISOS (Formato de texto para el Frontend)
@@ -329,7 +415,7 @@ const authController = {
                     { 
                         model: Cliente, 
                         as: 'clienteData',
-                        attributes: ['id', 'avatarUrl', 'direccion', 'ciudad', 'departamento']
+                        attributes: ['id', 'avatarUrl', 'direccion', 'ciudad']
                     }
                 ]
             });
@@ -346,7 +432,6 @@ const authController = {
                 if (user.clienteData.avatarUrl) userJSON.avatarUrl = user.clienteData.avatarUrl;
                 if (user.clienteData.direccion) userJSON.direccion = user.clienteData.direccion;
                 if (user.clienteData.ciudad) userJSON.ciudad = user.clienteData.ciudad;
-                if (user.clienteData.departamento) userJSON.departamento = user.clienteData.departamento;
             }
 
             // Asegurar que el nombre del rol esté disponible directamente
@@ -430,18 +515,24 @@ const authController = {
             const searchEmail = email || correo;
 
             if (!searchEmail) {
+                console.warn('⚠️ [AUTH FORGOT PASSWORD] Email no proporcionado');
                 return res.status(400).json({ success: false, message: 'El correo electrónico es requerido' });
             }
 
+            console.log(`🔄 [AUTH FORGOT PASSWORD] Procesando solicitud para: ${searchEmail}`);
             await authService.forgotPassword(searchEmail);
             
+            console.log(`✅ [AUTH FORGOT PASSWORD] Solicitud completada exitosamente para: ${searchEmail}`);
             res.json({ 
                 success: true, 
                 message: 'Se han enviado las instrucciones de recuperación a tu correo electrónico.' 
             });
         } catch (error) {
-            console.error('⚠️ [AUTH FORGOT PASSWORD]:', error.message);
-            res.status(400).json({ success: false, message: error.message });
+            console.error('❌ [AUTH FORGOT PASSWORD]:', error.message);
+            res.status(400).json({ 
+                success: false, 
+                message: error.message || 'Error al procesar la solicitud de recuperación' 
+            });
         }
     },
 
@@ -494,6 +585,79 @@ const authController = {
         } catch (error) {
             console.error('🔴 [AUTH SYNC]:', error);
             res.status(500).json({ success: false, message: 'Error al sincronizar clave' });
+        }
+    },
+
+    checkExistence: async (req, res) => {
+        try {
+            const { email, documento, excludeUserId, excludeClienteId } = req.query;
+            const result = { emailExists: false, documentoExists: false };
+
+            let targetExcludeUserId = excludeUserId;
+            let targetExcludeClienteId = excludeClienteId;
+
+            // Si viene excludeClienteId y no excludeUserId, intentar deducir el ID del Usuario correspondiente
+            if (excludeClienteId && !targetExcludeUserId) {
+                const exclCliente = await Cliente.findByPk(excludeClienteId);
+                if (exclCliente && exclCliente.email) {
+                    const exclUser = await Usuario.findOne({ where: { email: exclCliente.email.toLowerCase().trim() } });
+                    if (exclUser) targetExcludeUserId = exclUser.id;
+                }
+            }
+
+            // Si viene excludeUserId y no excludeClienteId, intentar deducir el ID del Cliente correspondiente
+            if (excludeUserId && !targetExcludeClienteId) {
+                const exclUser = await Usuario.findByPk(excludeUserId);
+                if (exclUser && exclUser.email) {
+                    const exclCliente = await Cliente.findOne({ where: { email: exclUser.email.toLowerCase().trim() } });
+                    if (exclCliente) targetExcludeClienteId = exclCliente.id;
+                }
+            }
+
+            if (email) {
+                const searchEmail = email.trim().toLowerCase();
+
+                const userQuery = { email: searchEmail };
+                if (targetExcludeUserId) {
+                    userQuery.id = { [Op.ne]: targetExcludeUserId };
+                }
+                const userExists = await Usuario.findOne({ where: userQuery });
+
+                const clienteQuery = { email: searchEmail };
+                if (targetExcludeClienteId) {
+                    clienteQuery.id = { [Op.ne]: targetExcludeClienteId };
+                }
+                const clienteExists = await Cliente.findOne({ where: clienteQuery });
+
+                if (userExists || clienteExists) {
+                    result.emailExists = true;
+                }
+            }
+
+            if (documento) {
+                const searchDoc = documento.trim();
+
+                const userQuery = { numeroDocumento: searchDoc };
+                if (targetExcludeUserId) {
+                    userQuery.id = { [Op.ne]: targetExcludeUserId };
+                }
+                const userExists = await Usuario.findOne({ where: userQuery });
+
+                const clienteQuery = { numeroDocumento: searchDoc };
+                if (targetExcludeClienteId) {
+                    clienteQuery.id = { [Op.ne]: targetExcludeClienteId };
+                }
+                const clienteExists = await Cliente.findOne({ where: clienteQuery });
+
+                if (userExists || clienteExists) {
+                    result.documentoExists = true;
+                }
+            }
+
+            res.json({ success: true, ...result });
+        } catch (error) {
+            console.error('🔴 [ERROR CHECK EXISTENCE]:', error);
+            res.status(500).json({ success: false, message: 'Error al verificar la existencia.' });
         }
     }
 };

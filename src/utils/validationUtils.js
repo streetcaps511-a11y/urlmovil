@@ -89,14 +89,14 @@ export const sanitizeProducto = (data) => {
         'nombre', 'categoria', 'idCategoria', 'descripcion', 'precioCompra', 'precioVenta', 
         'precioOferta', 'precioMayorista6', 'precioMayorista80', 'enOfertaVenta', 
         'porcentajeDescuento', 'enInventario', 'stock', 'tallasStock', 'imagenes', 
-        'colores', 'destacado', 'isActive'
+        'colores', 'isActive'
     ];
 
     fields.forEach(field => {
         if (data[field] !== undefined) {
             if (['precioCompra', 'precioVenta', 'precioOferta', 'precioMayorista6', 'precioMayorista80', 'stock', 'porcentajeDescuento'].includes(field)) {
                 sanitized[field] = Number(data[field] || 0);
-            } else if (['enOfertaVenta', 'enInventario', 'isActive', 'destacado'].includes(field)) {
+            } else if (['enOfertaVenta', 'enInventario', 'isActive'].includes(field)) {
                 sanitized[field] = !!data[field];
             } else if (['tallasStock', 'imagenes'].includes(field)) {
                 sanitized[field] = Array.isArray(data[field]) ? data[field] : [];
@@ -114,7 +114,7 @@ export const sanitizeProducto = (data) => {
 // ============================================
 export const validateProveedor = async (data, id = null) => {
     const errors = [];
-    const { companyName, documentNumber, email, phone } = data;
+    const { companyName, documentNumber, email, phone, documentType } = data;
 
     if (companyName !== undefined && (!companyName || companyName.trim().length < 3)) {
         errors.push('El nombre de empresa debe tener al menos 3 caracteres');
@@ -124,9 +124,20 @@ export const validateProveedor = async (data, id = null) => {
 
     // Validar Documento
     if (documentNumber !== undefined) {
-        if (documentNumber && !isNumeric(documentNumber)) {
-            errors.push('El número de documento debe contener solo números');
+        let isDocValid = true;
+        if (documentType === 'NIT') {
+            if (documentNumber && !/^[\d]+-\d$/.test(documentNumber)) {
+                errors.push('El NIT debe tener números y un guion (ej: 123456789-0)');
+                isDocValid = false;
+            }
         } else {
+            if (documentNumber && !isNumeric(documentNumber)) {
+                errors.push('El número de documento debe contener solo números');
+                isDocValid = false;
+            }
+        }
+
+        if (isDocValid && documentNumber) {
             validationPromises.push(
                 Proveedor.findOne({ where: { 
                     documentNumber: documentNumber.toString().trim(),
@@ -167,13 +178,20 @@ export const sanitizeProveedor = (data) => {
     const sanitized = {};
     const fields = [
         'companyName', 'documentType', 'documentNumber', 'contactName', 
-        'phone', 'address', 'email', 'supplierType', 'department', 'city', 'isActive'
+        'phone', 'address', 'email', 'supplierType', 'city', 'isActive'
     ];
     fields.forEach(f => {
         if (data[f] !== undefined) {
             if (f === 'email') sanitized[f] = data[f].toLowerCase().trim();
             else if (f === 'isActive') sanitized[f] = !!data[f];
-            else if (['documentNumber', 'phone'].includes(f)) {
+            else if (f === 'documentNumber') {
+                if (data.documentType === 'NIT') {
+                    sanitized[f] = data[f] ? data[f].toString().replace(/[^\d-]/g, '') : null;
+                } else {
+                    sanitized[f] = data[f] ? data[f].toString().replace(/\D/g, '') : null;
+                }
+            }
+            else if (f === 'phone') {
                 sanitized[f] = data[f] ? data[f].toString().replace(/\D/g, '') : null;
             }
             else sanitized[f] = data[f] ? data[f].toString().trim() : null;
@@ -187,9 +205,14 @@ export const sanitizeProveedor = (data) => {
 // ============================================
 export const validateCliente = async (data, id = null) => {
     const errors = [];
-    const { nombreCompleto, email, numeroDocumento, telefono } = data;
+    
+    // 🟢 TRADUCTOR DE CAMPOS
+    const nombre = data.nombreCompleto || data.fullName || data.name || data.Name || data.nombre;
+    const email = data.email || data.correo || data.Email;
+    const numeroDoc = data.numeroDocumento || data.documentNumber || data.Documento || data.identificacion || data.documento;
+    const tel = data.telefono || data.phone || data.Telefono;
 
-    if (nombreCompleto !== undefined && (!nombreCompleto || nombreCompleto.trim().length < 3)) {
+    if (nombre !== undefined && (!nombre || nombre.trim().length < 3)) {
         errors.push('El nombre debe tener al menos 3 caracteres');
     }
 
@@ -201,8 +224,8 @@ export const validateCliente = async (data, id = null) => {
         if (existing) errors.push('Ya existe un cliente con ese email');
     }
 
-    if (numeroDocumento !== undefined && numeroDocumento) {
-        const cleanDoc = numeroDocumento.toString().replace(/\D/g, '');
+    if (numeroDoc !== undefined && numeroDoc) {
+        const cleanDoc = numeroDoc.toString().replace(/\D/g, '');
         if (cleanDoc && !isNumeric(cleanDoc)) {
             errors.push('El documento debe contener solo números');
         } else if (cleanDoc) {
@@ -214,8 +237,8 @@ export const validateCliente = async (data, id = null) => {
         }
     }
 
-    if (telefono !== undefined && telefono) {
-        const cleanPhone = telefono.toString().replace(/\D/g, '');
+    if (tel !== undefined && tel) {
+        const cleanPhone = tel.toString().replace(/\D/g, '');
         // Solo validar si tiene contenido y no es una cadena informativa como "No registrado"
         if (cleanPhone) {
             if (!isNumeric(cleanPhone)) errors.push('El teléfono debe contener solo números');
@@ -228,18 +251,32 @@ export const validateCliente = async (data, id = null) => {
 
 export const sanitizeCliente = (data) => {
     const sanitized = {};
+    
+    // 🟢 TRADUCTOR DE CAMPOS
+    const mapeo = {
+        nombreCompleto: data.nombreCompleto || data.fullName || data.name || data.Name || data.nombre,
+        email: data.email || data.correo || data.Email,
+        numeroDocumento: data.numeroDocumento || data.documentNumber || data.Documento || data.identificacion || data.documento,
+        telefono: data.telefono || data.phone || data.Telefono,
+        direccion: data.direccion || data.address || data.Direccion,
+        ciudad: data.ciudad || data.city || data.Ciudad,
+        tipoDocumento: data.tipoDocumento || data.documentType || data.TipoDocumento || data.tipoDoc || 'Cédula de Ciudadanía',
+        idUsuario: data.idUsuario || data.userId,
+        isActive: data.isActive !== undefined ? data.isActive : (data.estado !== undefined ? (data.estado === 'activo' || data.estado === true) : true)
+    };
+
     const fields = [
         'nombreCompleto', 'email', 'numeroDocumento', 'telefono', 
-        'direccion', 'ciudad', 'departamento', 'tipoDocumento', 'idUsuario', 'isActive'
+        'direccion', 'ciudad', 'tipoDocumento', 'idUsuario', 'isActive'
     ];
     fields.forEach(f => {
-        if (data[f] !== undefined) {
-            if (f === 'email') sanitized[f] = data[f].toLowerCase().trim();
-            else if (f === 'isActive') sanitized[f] = !!data[f];
+        if (mapeo[f] !== undefined) {
+            if (f === 'email') sanitized[f] = mapeo[f].toLowerCase().trim();
+            else if (f === 'isActive') sanitized[f] = !!mapeo[f];
             else if (['numeroDocumento', 'telefono'].includes(f)) {
-                sanitized[f] = data[f] ? data[f].toString().replace(/\D/g, '') : null;
+                sanitized[f] = mapeo[f] ? mapeo[f].toString().replace(/\D/g, '') : null;
             }
-            else sanitized[f] = data[f] ? data[f].toString().trim() : null;
+            else sanitized[f] = mapeo[f] ? mapeo[f].toString().trim() : null;
         }
     });
     return sanitized;
@@ -252,7 +289,13 @@ export const validateUsuario = async (data, id = null) => {
     const errors = [];
     const { nombre, email, idRol } = data;
 
-    if (nombre !== undefined && (!nombre || nombre.trim() === '')) errors.push('El nombre es requerido');
+    if (nombre !== undefined) {
+        if (!nombre || nombre.trim() === '') {
+            errors.push('El nombre es requerido');
+        } else if (!nombre.trim().includes(' ')) {
+            errors.push('Debe ingresar nombre y apellido separados por un espacio');
+        }
+    }
 
     if (email !== undefined) {
         const existing = await Usuario.findOne({ where: { 
@@ -272,7 +315,7 @@ export const validateUsuario = async (data, id = null) => {
 
 export const sanitizeUsuario = (data) => {
     const sanitized = {};
-    const fields = ['nombre', 'apellido', 'email', 'clave', 'idRol', 'estado'];
+    const fields = ['nombre', 'email', 'clave', 'idRol', 'estado'];
     fields.forEach(f => {
         if (data[f] !== undefined) {
             if (f === 'email') sanitized[f] = data[f].toLowerCase().trim();

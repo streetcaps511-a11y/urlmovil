@@ -56,7 +56,6 @@ const sanitizeClienteData = (data) => {
     if (data.Nombre) sanitized.Nombre = data.Nombre.trim().replace(/\s+/g, ' ');
     if (data.Correo) sanitized.Correo = data.Correo.toLowerCase().trim();
     if (data.Telefono) sanitized.Telefono = data.Telefono.trim();
-    if (data.Departamento) sanitized.Departamento = data.Departamento.trim();
     if (data.Ciudad) sanitized.Ciudad = data.Ciudad.trim();
     if (data.Direccion) sanitized.Direccion = data.Direccion.trim();
     if (data.Documento) sanitized.Documento = data.Documento.toString().trim();

@@ -24,11 +24,7 @@ const Venta = sequelize.define('Venta', {
             key: 'IdCliente'
         }
     },
-    clienteNombreHistorico: { // 📝 Guardar nombre para el historial si se borra el cliente
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        field: 'ClienteNombreHistorico'
-    },
+
     idEstado: {
         type: DataTypes.STRING(50),
         allowNull: false,
@@ -107,16 +103,35 @@ const Venta = sequelize.define('Venta', {
         allowNull: true,
         defaultValue: 'Por enviar',
         field: 'StatusEnvio'
+    },
+    fechaEnvio: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'FechaEnvio'
+    },
+    fechaEntrega: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'FechaEntrega'
+    },
+    esManual: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'EsManual'
     }
 }, {
     tableName: 'Ventas',
     timestamps: false,
     hooks: {
         beforeCreate: (venta) => {
-            console.log(`💰 Creando nueva venta para cliente ID: ${venta.idCliente}`);
+            if (venta.tipoEntrega === 'recoger') {
+                venta.statusenvio = 'Preparando';
+            } else if (!venta.statusenvio) {
+                venta.statusenvio = 'Por enviar';
+            }
         },
         beforeUpdate: (venta) => {
-            console.log(`💰 Actualizando venta ID: ${venta.id}`);
         }
     }
 });

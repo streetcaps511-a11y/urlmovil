@@ -165,6 +165,7 @@ const proveedorController = {
             // Validar datos
             const validationErrors = await validateProveedor(data);
             if (validationErrors.length > 0) {
+                console.log("Validation errors in backend:", validationErrors, "Data:", data);
                 await transaction.rollback();
                 return res.status(400).json({
                     success: false,
@@ -352,14 +353,31 @@ const proveedorController = {
                 });
             }
 
+            // 🛡️ REGLA: No se puede eliminar si tiene compras asociadas que no estén anuladas
+            const activePurchasesCount = await Compra.count({
+                where: {
+                    idProveedor: id,
+                    estado: {
+                        [Op.notIn]: ['Anulada', 'anulada']
+                    }
+                }
+            });
+
+            if (activePurchasesCount > 0) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `No se puede eliminar el proveedor porque tiene ${activePurchasesCount} compra(s) asociada(s) activa(s).`
+                });
+            }
+
             // 🛡️ DESVINCULAR COMPRAS Y GUARDAR NOMBRE HISTÓRICO
             // Esto permite borrar el proveedor sin perder el historial de a quién se le compró
             const companyName = proveedor.companyName || proveedor.Nombre;
             
             await Compra.update(
                 { 
-                    idProveedor: null, 
-                    proveedorNombreHistorico: companyName 
+                    idProveedor: null 
                 }, 
                 { 
                     where: { idProveedor: id },

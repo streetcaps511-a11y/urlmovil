@@ -18,6 +18,8 @@ router.use(verifyToken);
 // 2. Rutas Específicas
 router.get('/estadisticas', checkPermission('ver_compras'), compraController.getEstadisticas);
 router.get('/proveedor/:proveedorId', checkPermission('ver_compras'), compraController.getComprasByProveedor);
+// 🔄 Recalcular stock desde el historial completo de compras (debe ir antes de /:id)
+router.post('/recalcular-stock', checkPermission('crear_compras'), compraController.recalcularStock);
 
 // 3. CRUD Estándar
 router.get('/', checkPermission('ver_compras'), compraController.getAllCompras);

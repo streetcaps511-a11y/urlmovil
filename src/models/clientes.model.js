@@ -68,12 +68,6 @@ const Cliente = sequelize.define('Cliente', {
         field: 'Estado',
         comment: 'Estado del cliente (true=activo, false=inactivo)'
     },
-    departamento: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-        field: 'Departamento',
-        comment: 'Departamento de residencia'
-    },
     ciudad: {
         type: DataTypes.STRING(50),
         allowNull: true,

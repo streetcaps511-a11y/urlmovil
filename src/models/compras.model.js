@@ -13,15 +13,11 @@ const Compra = sequelize.define('Compra', {
         allowNull: true,
         field: 'IdProveedor'
     },
-    proveedorNombreHistorico: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        field: 'ProveedorNombreHistorico'
-    },
-    numeroRecibo: {
+
+    nfactura: {
         type: DataTypes.STRING(100),
         allowNull: true,
-        field: 'NumeroRecibo'
+        field: 'Nfactura'
     },
     fecha: {
         type: DataTypes.DATEONLY,
@@ -33,11 +29,6 @@ const Compra = sequelize.define('Compra', {
         allowNull: false,
         defaultValue: 0,
         field: 'Total'
-    },
-    totalFactura: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        field: 'TotalFactura'
     },
     metodoPago: {
         type: DataTypes.STRING(50),
