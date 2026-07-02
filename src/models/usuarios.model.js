@@ -112,6 +112,42 @@ const Usuario = sequelize.define('Usuario', {
     type: DataTypes.DATE,
     allowNull: true,
     field: 'LastActivityApp'
+  },
+  correo: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('email');
+    },
+    set(value) {
+      this.setDataValue('email', value);
+    }
+  },
+  contrasena: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('clave');
+    },
+    set(value) {
+      this.setDataValue('clave', value);
+    }
+  },
+  contraseña: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('clave');
+    },
+    set(value) {
+      this.setDataValue('clave', value);
+    }
+  },
+  password: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('clave');
+    },
+    set(value) {
+      this.setDataValue('clave', value);
+    }
   }
 }, {
   tableName: 'Usuarios',
@@ -148,6 +184,9 @@ Usuario.prototype.validarClave = async function(claveInput) {
 Usuario.prototype.toJSON = function() {
   const values = { ...this.get() };
   delete values.clave;
+  delete values.contrasena;
+  delete values.contraseña;
+  delete values.password;
   return values;
 };
 

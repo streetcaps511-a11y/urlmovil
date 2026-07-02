@@ -170,9 +170,9 @@ const authController = {
 
     login: async (req, res) => {
         try {
-            const { email, correo, clave, contrasena, password } = req.body;
+            const { email, correo, clave, contrasena, contraseña, password } = req.body;
             const searchEmail = (email || correo || '').trim().toLowerCase();
-            const rawPassword = (clave || contrasena || password || '').trim();
+            const rawPassword = (clave || contrasena || contraseña || password || '').trim();
             
             // console.log('🔍 [DEBUG LOGIN] Buscando:', searchEmail);
 
@@ -477,8 +477,8 @@ const authController = {
 
     changePassword: async (req, res) => {
         try {
-            const { claveNueva, contrasenaNueva } = req.body;
-            const newPwd = claveNueva || contrasenaNueva;
+            const { claveNueva, contrasenaNueva, contraseñaNueva } = req.body;
+            const newPwd = claveNueva || contrasenaNueva || contraseñaNueva;
 
             if (!newPwd) {
                 return res.status(400).json({ success: false, message: 'La nueva contraseña es requerida' });
@@ -541,8 +541,8 @@ const authController = {
      */
     resetPassword: async (req, res) => {
         try {
-            const { token, clave, password, contrasena } = req.body;
-            const newPassword = clave || password || contrasena;
+            const { token, clave, password, contrasena, contraseña } = req.body;
+            const newPassword = clave || password || contrasena || contraseña;
 
             if (!token || !newPassword) {
                 return res.status(400).json({ success: false, message: 'El token y la nueva contraseña son requeridos' });
