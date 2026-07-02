@@ -344,7 +344,16 @@ const authController = {
             const linkedPerms = user.rolData?.listaPermisos ? user.rolData.listaPermisos.map(p => p.id || p.nombre) : [];
             
             // Unir y limpiar duplicados (solo texto)
-            const uniquePerms = [...new Set([...rolePerms, ...linkedPerms])];
+            let uniquePerms = [...new Set([...rolePerms, ...linkedPerms])];
+
+            // 🛡️ REFUERZO BACKEND: Si es administrador (IdRol === 1) y está vacío, asegurar todos los permisos
+            if (user.idRol === 1 && uniquePerms.length === 0) {
+                uniquePerms = [
+                    'dashboard', 'categorias', 'productos', 'proveedores', 'compras', 
+                    'detalleCompras', 'clientes', 'ventas', 'detalleVentas', 'devoluciones', 
+                    'usuarios', 'roles', 'permisos', 'detallePermisos', 'estados', 'tallas', 'imagenes', 'auth'
+                ];
+            }
             
             userJSON.permisos = uniquePerms;
             userJSON.listaPermisos = uniquePerms; // Duplicar por si acaso el front usa otro nombre
